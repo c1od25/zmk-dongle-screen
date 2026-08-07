@@ -19,10 +19,9 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/endpoints.h>
 
 #include "output_status.h"
+#include <fonts.h>
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
-
-lv_point_t selection_line_points[] = {{0, 0}, {13, 0}}; // will be replaced with lv_point_precise_t
 
 struct output_status_state
 {
@@ -43,52 +42,46 @@ static struct output_status_state get_state(const zmk_event_t *_eh)
         .usb_is_hid_ready = zmk_usb_is_hid_ready()};                       // 0 = not ready, 1 = ready
 }
 
+#define COLOR_FG_MID LV_COLOR_MAKE(0x9a, 0x9a, 0xa5)
+#define COLOR_FG_FAINT LV_COLOR_MAKE(0x38, 0x38, 0x42)
+#define COLOR_RED LV_COLOR_MAKE(0xe8, 0x45, 0x3c)
+
 static void set_status_symbol(struct zmk_widget_output_status *widget, struct output_status_state state)
 {
-    const char *ble_color = "ffffff";
-    const char *usb_color = "ffffff";
-    char transport_text[50] = {};
     if (state.usb_is_hid_ready == 0)
     {
-        usb_color = "ff0000";
+        lv_obj_set_style_text_color(widget->usb_label, COLOR_RED, LV_PART_MAIN);
+    }
+    else if (state.selected_endpoint.transport == ZMK_TRANSPORT_USB)
+    {
+        lv_obj_set_style_text_color(widget->usb_label, COLOR_FG_MID, LV_PART_MAIN);
     }
     else
     {
-        usb_color = "ffffff";
+        lv_obj_set_style_text_color(widget->usb_label, COLOR_FG_FAINT, LV_PART_MAIN);
     }
 
     if (state.active_profile_connected == 1)
     {
-        ble_color = "00ff00";
-    }
-    else if (state.active_profile_bonded == 1)
-    {
-        ble_color = "0000ff";
+        lv_obj_set_style_text_color(widget->bt_label, COLOR_RED, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(widget->bt_dot, COLOR_RED, LV_PART_MAIN);
+        lv_obj_set_style_box_shadow_color(widget->bt_dot, COLOR_RED, LV_PART_MAIN);
+        lv_obj_set_style_box_shadow_width(widget->bt_dot, 6, LV_PART_MAIN);
+        lv_obj_set_style_box_shadow_opa(widget->bt_dot, LV_OPA_50, LV_PART_MAIN);
     }
     else
     {
-        ble_color = "ffffff";
+        if (state.active_profile_bonded == 1)
+        {
+            lv_obj_set_style_text_color(widget->bt_label, COLOR_FG_MID, LV_PART_MAIN);
+        }
+        else
+        {
+            lv_obj_set_style_text_color(widget->bt_label, COLOR_FG_FAINT, LV_PART_MAIN);
+        }
+        lv_obj_set_style_bg_color(widget->bt_dot, COLOR_FG_FAINT, LV_PART_MAIN);
+        lv_obj_set_style_box_shadow_width(widget->bt_dot, 0, LV_PART_MAIN);
     }
-
-    switch (state.selected_endpoint.transport)
-    {
-    case ZMK_TRANSPORT_USB:
-        snprintf(transport_text, sizeof(transport_text), "> #%s USB#\n#%s BLE#", usb_color, ble_color);
-        break;
-    case ZMK_TRANSPORT_BLE:
-        snprintf(transport_text, sizeof(transport_text), "#%s USB#\n> #%s BLE#", usb_color, ble_color);
-        break;
-    }
-
-    lv_label_set_recolor(widget->transport_label, true);
-    lv_obj_set_style_text_align(widget->transport_label, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_label_set_text(widget->transport_label, transport_text);
-
-    char ble_text[12];
-
-    snprintf(ble_text, sizeof(ble_text), "%d", state.active_profile_index + 1);
-    // lv_obj_set_style_text_align(widget->ble_label, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_label_set_text(widget->ble_label, ble_text);
 }
 
 static void output_status_update_cb(struct output_status_state state)
@@ -110,13 +103,32 @@ ZMK_SUBSCRIPTION(widget_output_status, zmk_usb_conn_state_changed);
 int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_obj_t *parent)
 {
     widget->obj = lv_obj_create(parent);
-    lv_obj_set_size(widget->obj, 240, 77);
+#if CONFIG_DONGLE_SCREEN_HORIZONTAL
+    lv_obj_set_size(widget->obj, 320, 22);
+#else
+    lv_obj_set_size(widget->obj, 240, 22);
+#endif
+    lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSPARENT, LV_PART_MAIN);
+    lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(widget->obj, 0, LV_PART_MAIN);
 
-    widget->transport_label = lv_label_create(widget->obj);
-    lv_obj_align(widget->transport_label, LV_ALIGN_TOP_RIGHT, -10, 10);
+    widget->usb_label = lv_label_create(widget->obj);
+    lv_obj_set_style_text_font(widget->usb_label, &NerdFonts_Regular_20, LV_PART_MAIN);
+    lv_label_set_text_static(widget->usb_label, "\U000F0553"); /* U+F0553 */
+    lv_obj_set_style_text_align(widget->usb_label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_obj_align(widget->usb_label, LV_ALIGN_TOP_LEFT, 12, 1);
 
-    widget->ble_label = lv_label_create(widget->obj);
-    lv_obj_align(widget->ble_label, LV_ALIGN_TOP_RIGHT, -10, 56);
+    widget->bt_label = lv_label_create(widget->obj);
+    lv_obj_set_style_text_font(widget->bt_label, &NerdFonts_Regular_20, LV_PART_MAIN);
+    lv_label_set_text_static(widget->bt_label, "\uF293"); /* U+F293 */
+    lv_obj_align(widget->bt_label, LV_ALIGN_TOP_RIGHT, -12, 1);
+
+    widget->bt_dot = lv_obj_create(widget->obj);
+    lv_obj_set_size(widget->bt_dot, 5, 5);
+    lv_obj_set_style_radius(widget->bt_dot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(widget->bt_dot, COLOR_FG_FAINT, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(widget->bt_dot, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_align_to(widget->bt_dot, widget->bt_label, LV_ALIGN_OUT_LEFT_MID, -5, 0);
 
     sys_slist_append(&widgets, &widget->node);
 
