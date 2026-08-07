@@ -95,11 +95,11 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
     lv_label_set_text_static(widget->wpm_value, "0");
 
     widget->wpm_suffix = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->wpm_suffix, &lv_font_unscii_8, 0);
+    lv_obj_set_style_text_font(widget->wpm_suffix, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(widget->wpm_suffix, lv_color_hex(0x383842), 0);
     lv_obj_set_style_text_letter_space(widget->wpm_suffix, 2, 0);
     lv_label_set_text_static(widget->wpm_suffix, "wpm");
-    lv_obj_align_to(widget->wpm_suffix, widget->wpm_value, LV_ALIGN_OUT_RIGHT_MID, 7, 0);
+    lv_obj_align_to(widget->wpm_suffix, widget->wpm_value, LV_ALIGN_OUT_RIGHT_MID, 12, 0);
 
     sys_slist_append(&widgets, &widget->node);
 

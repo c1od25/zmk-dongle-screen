@@ -32,7 +32,7 @@ static void layer_status_update_cb(struct layer_status_state state)
     {
         const char *label = state.label;
 
-        if (label == NULL)
+        if (label == NULL || label[0] == '\0')
         {
             snprintf(layer_index_text, sizeof(layer_index_text), "%u", state.index);
             label = layer_index_text;
@@ -81,7 +81,7 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
     /* Layer icon U+EBD2 is missing from the committed fonts (design §5 audit), so the
      * documented fallback renders the layer name as plain text with no icon. */
     widget->layer_name = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->layer_name, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(widget->layer_name, &lv_font_montserrat_20, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->layer_name, lv_color_hex(0xececef), LV_PART_MAIN);
     lv_label_set_text_static(widget->layer_name, "");
     lv_obj_align(widget->layer_name, LV_ALIGN_CENTER, 0, 0);

@@ -47,8 +47,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_H      240
 #define BATTERY_BAR_H         128
 #define BATTERY_TAG_Y         214
-#define BATTERY_SLOT0_BAR_X   21
-#define BATTERY_SLOT1_BAR_X   281
+#define BATTERY_SLOT0_BAR_X   17
+#define BATTERY_SLOT1_BAR_X   277
 #define BATTERY_SLOT0_CENTER_X 30
 #define BATTERY_SLOT1_CENTER_X 290
 #else
@@ -56,13 +56,13 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_H      320
 #define BATTERY_BAR_H         188
 #define BATTERY_TAG_Y         292
-#define BATTERY_SLOT0_BAR_X   24
-#define BATTERY_SLOT1_BAR_X   198
+#define BATTERY_SLOT0_BAR_X   20
+#define BATTERY_SLOT1_BAR_X   194
 #define BATTERY_SLOT0_CENTER_X 33
 #define BATTERY_SLOT1_CENTER_X 207
 #endif
 
-#define BATTERY_BAR_W         18
+#define BATTERY_BAR_W         26
 #define BATTERY_BAR_Y         78
 #define BATTERY_ICON_Y        54
 
