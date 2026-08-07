@@ -85,6 +85,7 @@ struct battery_object
     lv_obj_t *icon;
     lv_obj_t *bar;
     lv_obj_t *tag;
+    char text[8]; /* per-slot stable storage; lv_label_set_text_static() does NOT copy */
 } battery_objects[BATTERY_SLOT_COUNT];
 
 /* Peripheral reconnection tracking
@@ -246,9 +247,8 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
     }
 
     /* Icon: "NN%" percent text, color per level (design §1 table). */
-    static char batt_text[8];
-    snprintf(batt_text, sizeof(batt_text), "%u%%", state.level);
-    lv_label_set_text_static(slot->icon, batt_text);
+    snprintf(slot->text, sizeof(slot->text), "%u%%", state.level);
+    lv_label_set_text_static(slot->icon, slot->text);
     if (state.level > 45)
     {
         lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
@@ -367,9 +367,12 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
                      BATTERY_ICON_Y);
         lv_label_set_text_static(icon, "--");
 
-        /* Slot designator tag ("L" / "R"). */
+        /* Slot designator tag ("L" / "R"), 8px unscii — the design calls for a
+         * 10px tag, which no compiled font provides; unscii_8 is the closest and
+         * is already selected in Kconfig (LV_FONT_UNSCII_8). It also fits the
+         * tag row without clipping at either panel size. */
         lv_obj_t *tag = lv_label_create(widget->obj);
-        lv_obj_set_style_text_font(tag, &lv_font_montserrat_20, 0);
+        lv_obj_set_style_text_font(tag, &lv_font_unscii_8, 0);
         lv_obj_set_style_text_color(tag, lv_color_hex(0x9a9aa5), 0);
         lv_obj_align(tag, LV_ALIGN_TOP_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
                      BATTERY_TAG_Y);
