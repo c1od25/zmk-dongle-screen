@@ -25,7 +25,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define MOD_CELL_W 108
 #define MOD_CELL_H 82
 #define MOD_KEY_W  52
-#define MOD_KEY_H  25
+#define MOD_KEY_H  30
 #endif
 
 /* Key positions relative to the mods cell origin. */
@@ -36,8 +36,8 @@ static const lv_point_t mod_key_pos[4] = {
     {5, 31},  /* Alt   */
     {103, 31} /* GUI   */
 #else
-    {0, 14},  /* Shift */
-    {56, 14}, /* Ctrl  */
+    {0, 9},  /* Shift */
+    {56, 9}, /* Ctrl  */
     {0, 43},  /* Alt   */
     {56, 43}  /* GUI   */
 #endif
@@ -75,12 +75,12 @@ static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const c
     lv_obj_t *mk_icon = lv_label_create(key);
     lv_label_set_text(mk_icon, icon);
     lv_obj_set_style_text_font(mk_icon, &NerdFonts_Regular_20, LV_PART_MAIN);
-    lv_obj_align(mk_icon, LV_ALIGN_TOP_MID, 0, 2);
+    lv_obj_align(mk_icon, LV_ALIGN_CENTER, -18, 0);
 
     lv_obj_t *mk_name = lv_label_create(key);
     lv_label_set_text(mk_name, name);
     lv_obj_set_style_text_font(mk_name, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_align(mk_name, LV_ALIGN_BOTTOM_MID, 0, -2);
+    lv_obj_align_to(mk_name, mk_icon, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
 
     return key;
 }
