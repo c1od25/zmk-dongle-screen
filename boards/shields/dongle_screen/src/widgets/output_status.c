@@ -42,9 +42,9 @@ static struct output_status_state get_state(const zmk_event_t *_eh)
         .usb_is_hid_ready = zmk_usb_is_hid_ready()};                       // 0 = not ready, 1 = ready
 }
 
-#define COLOR_FG_MID LV_COLOR_MAKE(0x9a, 0x9a, 0xa5)
-#define COLOR_FG_FAINT LV_COLOR_MAKE(0x38, 0x38, 0x42)
-#define COLOR_RED LV_COLOR_MAKE(0xe8, 0x45, 0x3c)
+#define COLOR_FG_MID ((lv_color_t)LV_COLOR_MAKE(0x9a, 0x9a, 0xa5))
+#define COLOR_FG_FAINT ((lv_color_t)LV_COLOR_MAKE(0x38, 0x38, 0x42))
+#define COLOR_RED ((lv_color_t)LV_COLOR_MAKE(0xe8, 0x45, 0x3c))
 
 static void set_status_symbol(struct zmk_widget_output_status *widget, struct output_status_state state)
 {
