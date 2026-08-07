@@ -169,6 +169,12 @@ config DONGLE_SCREEN_BATTERY_ACTIVE
     help
       If the Battery Widget should be active or not
 
+config DONGLE_SCREEN_SHOWKEY_ACTIVE
+    bool "Showkey Widget active"
+    default y
+    help
+      If the showkey widget should be active or not
+
 config DONGLE_SCREEN_AMBIENT_LIGHT
     bool "Enable automatic brightness via ambient light sensor"
     default n
