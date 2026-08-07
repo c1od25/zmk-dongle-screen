@@ -176,6 +176,13 @@ config DONGLE_SCREEN_SHOWKEY_ACTIVE
     help
       If the showkey widget should be active or not
 
+config DONGLE_SCREEN_MEM_DEBUG
+    bool "Log LVGL heap usage periodically"
+    default n
+    help
+      If enabled, periodically logs lv_mem_monitor() totals for tuning the
+      LVGL memory pool size. Logs every 10 seconds via lv_timer.
+
 config DONGLE_SCREEN_AMBIENT_LIGHT
     bool "Enable automatic brightness via ambient light sensor"
     default n

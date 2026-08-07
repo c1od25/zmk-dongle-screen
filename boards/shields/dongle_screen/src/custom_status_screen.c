@@ -41,6 +41,17 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 lv_style_t global_style;
 
+#if CONFIG_DONGLE_SCREEN_MEM_DEBUG
+static void mem_debug_timer_cb(lv_timer_t *timer)
+{
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+    LOG_INF("LVGL mem: total=%u max_used=%u used_pct=%u%% free=%u frag_pct=%u%%",
+            mon.total_size, mon.max_used, mon.used_pct,
+            mon.free_size, mon.frag_pct);
+}
+#endif
+
 /*
  * Screen assembly (design doc §2 / §3).
  *
@@ -135,6 +146,10 @@ lv_obj_t *zmk_display_status_screen()
 
 #if CONFIG_DONGLE_SCREEN_WPM_ACTIVE
     zmk_widget_wpm_status_init(&wpm_status_widget, screen);
+#endif
+
+#if CONFIG_DONGLE_SCREEN_MEM_DEBUG
+    lv_timer_create(mem_debug_timer_cb, 10000, NULL);
 #endif
 
     return screen;
