@@ -73,7 +73,10 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
 
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(widget->obj, 0, LV_PART_MAIN);
 
     /* Layer icon U+EBD2 is missing from the committed fonts (design §5 audit), so the
      * documented fallback renders the layer name as plain text with no icon. */

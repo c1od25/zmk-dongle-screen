@@ -325,7 +325,7 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
 {
     widget->obj = lv_obj_create(parent);
     lv_obj_remove_style_all(widget->obj);
-    lv_obj_clear_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
     /*
      * The widget owns the two battery columns and self-positions them.
      * Sized to the full panel so the screen file's BOTTOM_MID alignment is a
@@ -335,8 +335,8 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
 
     init_bar_styles();
 
-    const lv_coord_t slot_bar_x[2] = {BATTERY_SLOT0_BAR_X, BATTERY_SLOT1_BAR_X};
-    const lv_coord_t slot_center_x[2] = {BATTERY_SLOT0_CENTER_X, BATTERY_SLOT1_CENTER_X};
+    const int32_t slot_bar_x[2] = {BATTERY_SLOT0_BAR_X, BATTERY_SLOT1_BAR_X};
+    const int32_t slot_center_x[2] = {BATTERY_SLOT0_CENTER_X, BATTERY_SLOT1_CENTER_X};
 
     for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
     {

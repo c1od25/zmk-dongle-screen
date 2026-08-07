@@ -65,9 +65,9 @@ static void set_status_symbol(struct zmk_widget_output_status *widget, struct ou
     {
         lv_obj_set_style_text_color(widget->bt_label, COLOR_RED, LV_PART_MAIN);
         lv_obj_set_style_bg_color(widget->bt_dot, COLOR_RED, LV_PART_MAIN);
-        lv_obj_set_style_box_shadow_color(widget->bt_dot, COLOR_RED, LV_PART_MAIN);
-        lv_obj_set_style_box_shadow_width(widget->bt_dot, 6, LV_PART_MAIN);
-        lv_obj_set_style_box_shadow_opa(widget->bt_dot, LV_OPA_50, LV_PART_MAIN);
+        lv_obj_set_style_shadow_color(widget->bt_dot, COLOR_RED, LV_PART_MAIN);
+        lv_obj_set_style_shadow_width(widget->bt_dot, 6, LV_PART_MAIN);
+        lv_obj_set_style_shadow_opa(widget->bt_dot, LV_OPA_50, LV_PART_MAIN);
     }
     else
     {
@@ -80,7 +80,7 @@ static void set_status_symbol(struct zmk_widget_output_status *widget, struct ou
             lv_obj_set_style_text_color(widget->bt_label, COLOR_FG_FAINT, LV_PART_MAIN);
         }
         lv_obj_set_style_bg_color(widget->bt_dot, COLOR_FG_FAINT, LV_PART_MAIN);
-        lv_obj_set_style_box_shadow_width(widget->bt_dot, 0, LV_PART_MAIN);
+        lv_obj_set_style_shadow_width(widget->bt_dot, 0, LV_PART_MAIN);
     }
 }
 
@@ -108,9 +108,12 @@ int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_ob
 #else
     lv_obj_set_size(widget->obj, 240, 22);
 #endif
-    lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSPARENT, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(widget->obj, 0, LV_PART_MAIN);
 
     widget->usb_label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->usb_label, &NerdFonts_Regular_20, LV_PART_MAIN);

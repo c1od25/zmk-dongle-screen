@@ -65,8 +65,11 @@ static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const c
     lv_obj_t *key = lv_obj_create(parent);
     lv_obj_set_pos(key, pos->x, pos->y);
     lv_obj_set_size(key, MOD_KEY_W, MOD_KEY_H);
-    lv_obj_set_style_pad_all(key, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(key, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_top(key, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(key, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(key, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(key, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(key, LV_OBJ_FLAG_SCROLLABLE);
     set_mod_key_active(key, false);
 
     lv_obj_t *mk_icon = lv_label_create(key);
@@ -104,8 +107,11 @@ int zmk_widget_mod_status_init(struct zmk_widget_mod_status *widget, lv_obj_t *p
 {
     widget->obj = lv_obj_create(parent);
     lv_obj_set_size(widget->obj, MOD_CELL_W, MOD_CELL_H);
-    lv_obj_set_style_pad_all(widget->obj, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_top(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
 
     widget->shift = mod_key_create(widget->obj, &mod_key_pos[0], MOD_ICON_SHIFT, "Shift");
     widget->ctrl = mod_key_create(widget->obj, &mod_key_pos[1], MOD_ICON_CTRL, "Ctrl");
