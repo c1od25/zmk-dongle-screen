@@ -9,11 +9,11 @@
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/display.h>
-#include <zmk/display/widgets/layer_status.h>
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/event_manager.h>
-#include <zmk/endpoints.h>
 #include <zmk/keymap.h>
+
+#include "layer_status.h"
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -23,30 +23,28 @@ struct layer_status_state
     const char *label;
 };
 
-static void set_layer_symbol(lv_obj_t *label, struct layer_status_state state)
-{
-    if (state.label == NULL)
-    {
-        char text[7] = {};
-
-        sprintf(text, "%i", state.index);
-
-        lv_label_set_text(label, text);
-    }
-    else
-    {
-        char text[13] = {};
-
-        snprintf(text, sizeof(text), "%s", state.label);
-
-        lv_label_set_text(label, text);
-    }
-}
+static char layer_index_text[4];
 
 static void layer_status_update_cb(struct layer_status_state state)
 {
     struct zmk_widget_layer_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_layer_symbol(widget->obj, state); }
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
+    {
+        const char *label = state.label;
+
+        if (label == NULL)
+        {
+            snprintf(layer_index_text, sizeof(layer_index_text), "%u", state.index);
+            label = layer_index_text;
+        }
+
+        lv_label_set_text_static(widget->layer_name, label);
+
+        lv_obj_set_style_text_color(widget->layer_name,
+                                    state.index > 0 ? lv_color_hex(0xe8453c)
+                                                    : lv_color_hex(0xececef),
+                                    LV_PART_MAIN);
+    }
 }
 
 static struct layer_status_state layer_status_get_state(const zmk_event_t *eh)
@@ -64,9 +62,26 @@ ZMK_SUBSCRIPTION(widget_layer_status, zmk_layer_state_changed);
 
 int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_t *parent)
 {
-    widget->obj = lv_label_create(parent);
+    widget->obj = lv_obj_create(parent);
 
-    lv_obj_set_style_text_font(widget->obj, &lv_font_montserrat_40, 0);
+    lv_obj_set_size(widget->obj, 108, 22);
+    lv_obj_set_pos(widget->obj, 66, 10);
+#ifdef CONFIG_DONGLE_SCREEN_HORIZONTAL
+    lv_obj_set_size(widget->obj, 200, 22);
+    lv_obj_set_pos(widget->obj, 60, 10);
+#endif
+
+    lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(widget->obj, 0, LV_PART_MAIN);
+
+    /* Layer icon U+EBD2 is missing from the committed fonts (design §5 audit), so the
+     * documented fallback renders the layer name as plain text with no icon. */
+    widget->layer_name = lv_label_create(widget->obj);
+    lv_obj_set_style_text_font(widget->layer_name, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->layer_name, lv_color_hex(0xececef), LV_PART_MAIN);
+    lv_label_set_text_static(widget->layer_name, "");
+    lv_obj_align(widget->layer_name, LV_ALIGN_CENTER, 0, 0);
 
     sys_slist_append(&widgets, &widget->node);
 
