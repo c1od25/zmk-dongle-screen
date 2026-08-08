@@ -170,6 +170,7 @@ static void showkey_status_update_cb(struct showkey_status_state state)
             }
             lv_anim_delete(widget->label, NULL);
             widget->hold_timer = lv_timer_create(showkey_hold_timeout, 800, widget);
+            lv_timer_set_repeat_count(widget->hold_timer, 1);
         }
     }
 }
