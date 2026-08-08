@@ -93,7 +93,10 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
     widget->wpm_icon = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->wpm_icon, &NerdFonts_Regular_28, 0);
     lv_obj_set_style_text_color(widget->wpm_icon, lv_color_hex(0x9a9aa5), 0);
-    lv_label_set_text_static(widget->wpm_icon, "\uF04C5");
+    lv_obj_set_style_pad_all(widget->wpm_icon, 0, LV_PART_MAIN);
+    /* U+F04C5 is above the BMP — needs the 8-digit \U0000XXXX escape, not
+     * \uXXXX (a 4-digit \u escape would render a missing-glyph tofu box). */
+    lv_label_set_text_static(widget->wpm_icon, "\U000F04C5");
     lv_obj_align_to(widget->wpm_icon, widget->wpm_value, LV_ALIGN_OUT_LEFT_MID, -8, 0);
 
     sys_slist_append(&widgets, &widget->node);

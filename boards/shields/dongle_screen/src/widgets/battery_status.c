@@ -43,11 +43,16 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
  * to the full panel so the screen file's BOTTOM_MID alignment is a no-op and
  * the widget origin lands at panel (0,0).
  */
+#define BATTERY_BAR_W         26
+#define BATTERY_BAR_Y         78
+#define BATTERY_TAG_GAP       4 /* tag-top ↔ bar-bottom gap (both orientations) */
+#define BATTERY_ICON_Y        54
+
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
 #define BATTERY_SCREEN_W      320
 #define BATTERY_SCREEN_H      240
-#define BATTERY_BAR_H         130
-#define BATTERY_TAG_BOTTOM_OFF -13
+#define BATTERY_TAG_BOTTOM    227 /* WPM value bottom (landscape) */
+#define BATTERY_TAG_BOTTOM_OFF -13 /* TAG_BOTTOM - SCREEN_H */
 #define BATTERY_SLOT0_BAR_X   17
 #define BATTERY_SLOT1_BAR_X   277
 #define BATTERY_SLOT0_CENTER_X 30
@@ -55,17 +60,13 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #else
 #define BATTERY_SCREEN_W      240
 #define BATTERY_SCREEN_H      320
-#define BATTERY_BAR_H         193
-#define BATTERY_TAG_BOTTOM_OFF -15
+#define BATTERY_TAG_BOTTOM    305 /* WPM value bottom (portrait) */
+#define BATTERY_TAG_BOTTOM_OFF -15 /* TAG_BOTTOM - SCREEN_H */
 #define BATTERY_SLOT0_BAR_X   20
 #define BATTERY_SLOT1_BAR_X   194
 #define BATTERY_SLOT0_CENTER_X 33
 #define BATTERY_SLOT1_CENTER_X 207
 #endif
-
-#define BATTERY_BAR_W         26
-#define BATTERY_BAR_Y         78
-#define BATTERY_ICON_Y        54
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -321,9 +322,14 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
             continue;
         }
 
-        /* Vertical battery bar (design §2.4 / §3.4). */
+        /* Vertical battery bar (design §2.4 / §3.4). Height computed at runtime
+         * so the bar bottom lands BATTERY_TAG_GAP above the tag top in BOTH
+         * orientations — Mono_20->line_height is the actual rendered height,
+         * not an assumed constant. */
         lv_obj_t *bar = lv_bar_create(widget->obj);
-        lv_obj_set_size(bar, BATTERY_BAR_W, BATTERY_BAR_H);
+        int32_t tag_h = Mono_20->line_height;
+        int32_t bar_h = BATTERY_TAG_BOTTOM - tag_h - BATTERY_TAG_GAP - BATTERY_BAR_Y;
+        lv_obj_set_size(bar, BATTERY_BAR_W, bar_h);
         lv_obj_set_pos(bar, slot_bar_x[i], BATTERY_BAR_Y);
         lv_bar_set_range(bar, 0, 100);
         lv_bar_set_value(bar, 0, LV_ANIM_OFF);
