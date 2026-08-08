@@ -26,6 +26,11 @@ static struct zmk_widget_dongle_battery_status dongle_battery_status_widget;
 static struct zmk_widget_wpm_status wpm_status_widget;
 #endif
 
+#if CONFIG_DONGLE_SCREEN_SCANNER_ACTIVE
+#include "widgets/scanner_status.h"
+static struct zmk_widget_scanner_status scanner_status_widget;
+#endif
+
 #if CONFIG_DONGLE_SCREEN_MODIFIER_ACTIVE
 #include "widgets/mod_status.h"
 static struct zmk_widget_mod_status mod_widget;
@@ -146,6 +151,10 @@ lv_obj_t *zmk_display_status_screen()
 
 #if CONFIG_DONGLE_SCREEN_WPM_ACTIVE
     zmk_widget_wpm_status_init(&wpm_status_widget, screen);
+#endif
+
+#if CONFIG_DONGLE_SCREEN_SCANNER_ACTIVE
+    zmk_widget_scanner_status_init(&scanner_status_widget, screen);
 #endif
 
 #if CONFIG_DONGLE_SCREEN_MEM_DEBUG

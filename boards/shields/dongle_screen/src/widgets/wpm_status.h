@@ -9,15 +9,11 @@
 #include <lvgl.h>
 #include <zephyr/kernel.h>
 
-#define WPM_BLOCK_N 15
-
-/* Block-character scanner animation in the former WPM cell. The widget is a
- * pure animation (no ZMK events): 15 discrete square blocks with a 6-level
- * exponential trail, scanning forward/backward with 4- and 12-frame gaps. */
 struct zmk_widget_wpm_status
 {
     lv_obj_t *obj;
-    lv_obj_t *blocks[WPM_BLOCK_N];
+    lv_obj_t *wpm_value;
+    lv_obj_t *wpm_icon;
     sys_snode_t node;
 };
 

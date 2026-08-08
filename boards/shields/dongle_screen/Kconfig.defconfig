@@ -16,6 +16,7 @@ config ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
     select LV_USE_ANIMATION
     select LV_USE_LINE 
     select LV_FONT_UNSCII_8
+    select ZMK_WPM if DONGLE_SCREEN_WPM_ACTIVE
     imply ZMK_HID_INDICATORS
 
 config ZMK_DONGLE_DISPLAY_DONGLE_BATTERY
@@ -140,12 +141,20 @@ config DONGLE_SCREEN_BRIGHTNESS_STEP
       How much brightness steps (range MIN_BRIGHTNESS to MAX_BRIGHTNESS) should be applied per keystroke
 
 config DONGLE_SCREEN_WPM_ACTIVE
-    bool "WPM cell: block-character scanner animation"
+    bool "WPM Widget active"
     default n
+    depends on !DONGLE_SCREEN_SCANNER_ACTIVE
     help
-      Replaces the former WPM cell with a looping block-scanner animation
-      (15 blocks, exponential trail, no ZMK events). If not active the cell
-      stays empty and the widget is not compiled.
+      If the WPM Widget should be active or not. Mutually exclusive with the
+      scanner loading animation (both default off).
+
+config DONGLE_SCREEN_SCANNER_ACTIVE
+    bool "Scanner loading animation widget active"
+    default n
+    depends on !DONGLE_SCREEN_WPM_ACTIVE
+    help
+      Block-character scanning loading animation in the former WPM cell.
+      Mutually exclusive with the WPM widget (both default off).
 
 config DONGLE_SCREEN_MODIFIER_ACTIVE
     bool "Modifier Widget active"
