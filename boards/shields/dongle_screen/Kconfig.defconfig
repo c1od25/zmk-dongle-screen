@@ -143,7 +143,6 @@ config DONGLE_SCREEN_BRIGHTNESS_STEP
 config DONGLE_SCREEN_WPM_ACTIVE
     bool "WPM Widget active"
     default n
-    depends on !DONGLE_SCREEN_SCANNER_ACTIVE
     help
       If the WPM Widget should be active or not. Mutually exclusive with the
       scanner loading animation (both default off).
