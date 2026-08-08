@@ -78,18 +78,18 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
 #endif
 
     /*
-     * WPM group (speedo icon + 14px gap + value), bottom-aligned in the cell.
+     * WPM group (speedo icon + 20px gap + value), bottom-aligned in the cell.
      * The speedometer icon (U+F04C5, NerdFonts_Speedo_40 — same 40px as the mod
      * icons) sits LEFT of the value. OUT_LEFT_MID resolves against the value
      * label's actual left edge, and that label's width already covers all 3
-     * digits ("110" @ Mono_28 ~50px), so a 14px gap can never be overlapped.
-     * Value is right-shifted 12px so the 3-digit group centers in the 108px
-     * cell (group ~88px, margins 3/17).
+     * digits ("110" @ Mono_28 ~50px), so a 20px gap can never be overlapped.
+     * Value is right-shifted 22px so the 3-digit group centers in the 108px
+     * cell (group ~94px: icon 24 + 20 + value 50, margins 7/7).
      */
     widget->wpm_value = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->wpm_value, &Mono_28, 0);
     lv_obj_set_style_text_color(widget->wpm_value, lv_color_hex(0xECECEF), 0);
-    lv_obj_align(widget->wpm_value, LV_ALIGN_BOTTOM_MID, 12, -3);
+    lv_obj_align(widget->wpm_value, LV_ALIGN_BOTTOM_MID, 22, -3);
     lv_label_set_text_static(widget->wpm_value, "0");
 
     widget->wpm_icon = lv_label_create(widget->obj);
@@ -99,7 +99,7 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
     /* U+F04C5 is above the BMP — needs the 8-digit \U0000XXXX escape, not
      * \uXXXX (a 4-digit \u escape would render a missing-glyph tofu box). */
     lv_label_set_text_static(widget->wpm_icon, "\U000F04C5");
-    lv_obj_align_to(widget->wpm_icon, widget->wpm_value, LV_ALIGN_OUT_LEFT_MID, -14, 0);
+    lv_obj_align_to(widget->wpm_icon, widget->wpm_value, LV_ALIGN_OUT_LEFT_MID, -20, 0);
 
     sys_slist_append(&widgets, &widget->node);
 
