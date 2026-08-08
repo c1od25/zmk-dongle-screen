@@ -47,7 +47,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_W      320
 #define BATTERY_SCREEN_H      240
 #define BATTERY_BAR_H         130
-#define BATTERY_TAG_Y         212
+#define BATTERY_TAG_BOTTOM_OFF -13
 #define BATTERY_SLOT0_BAR_X   17
 #define BATTERY_SLOT1_BAR_X   277
 #define BATTERY_SLOT0_CENTER_X 30
@@ -56,7 +56,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_W      240
 #define BATTERY_SCREEN_H      320
 #define BATTERY_BAR_H         193
-#define BATTERY_TAG_Y         275
+#define BATTERY_TAG_BOTTOM_OFF -15
 #define BATTERY_SLOT0_BAR_X   20
 #define BATTERY_SLOT1_BAR_X   194
 #define BATTERY_SLOT0_CENTER_X 33
@@ -341,19 +341,15 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
                      BATTERY_ICON_Y);
         lv_label_set_text_static(icon, "--");
 
-        /* Slot designator tag ("L" / "R"). Portrait uses Mono_20 (matches the
-         * percent text size; tag sits 4px below the bar bottom at y=270).
-         * Landscape stays Mono_12 at y=210 — Mono_20 would clip the 240px
-         * panel (210 + ~30 line height = 240 exactly at the edge). */
+        /* Slot designator tag ("L" / "R"). Bottom-relative alignment puts the
+         * tag bottom exactly on the WPM value bottom (portrait 305, landscape
+         * 227) regardless of font line-height — TOP_MID absolute Y drifted
+         * because Mono_20 line-height != assumed 30px. Mono_20 both orients. */
         lv_obj_t *tag = lv_label_create(widget->obj);
-#if CONFIG_DONGLE_SCREEN_HORIZONTAL
-        lv_obj_set_style_text_font(tag, &Mono_12, 0);
-#else
         lv_obj_set_style_text_font(tag, &Mono_20, 0);
-#endif
         lv_obj_set_style_text_color(tag, lv_color_hex(0x9a9aa5), 0);
-        lv_obj_align(tag, LV_ALIGN_TOP_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
-                     BATTERY_TAG_Y);
+        lv_obj_align(tag, LV_ALIGN_BOTTOM_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
+                     BATTERY_TAG_BOTTOM_OFF);
         lv_label_set_text_static(tag, i == 0 ? "L" : "R");
 
         battery_objects[i] = (struct battery_object){

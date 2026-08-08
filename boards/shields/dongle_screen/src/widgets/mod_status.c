@@ -19,8 +19,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
 #define MOD_CELL_W 200
 #define MOD_CELL_H 56
-#define MOD_KEY_W  92
-#define MOD_KEY_H  25
+#define MOD_KEY_W  50
+#define MOD_KEY_H  48
 #else
 #define MOD_CELL_W 108
 #define MOD_CELL_H 82
@@ -31,10 +31,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 /* Key positions relative to the mods cell origin. */
 static const lv_point_t mod_key_pos[4] = {
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-    {5, 0},   /* Shift */
-    {103, 0}, /* Ctrl  */
-    {5, 31},  /* Alt   */
-    {103, 31} /* GUI   */
+    {0, 4},   /* Shift */
+    {50, 4},  /* Ctrl  */
+    {100, 4}, /* Alt   */
+    {150, 4}  /* GUI   */
 #else
     {0, 1},  /* Shift */
     {56, 1}, /* Ctrl  */
@@ -75,13 +75,9 @@ static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const c
 
     lv_obj_t *mk_icon = lv_label_create(key);
     lv_label_set_text(mk_icon, icon);
-#if CONFIG_DONGLE_SCREEN_HORIZONTAL
-    /* Landscape: 25px keys — keep the 20px icon, centered. */
-    lv_obj_set_style_text_font(mk_icon, &NerdFonts_Regular_20, LV_PART_MAIN);
-#else
-    /* Portrait: 38px keys — 40px icon fills the key, centered. */
+    /* 40px icon centered in both orientations (landscape 48px / portrait 38px
+     * keys) — the mod glyphs are ~21px wide, so 50px landscape keys fit. */
     lv_obj_set_style_text_font(mk_icon, &NerdFonts_Regular_40, LV_PART_MAIN);
-#endif
     lv_obj_align(mk_icon, LV_ALIGN_CENTER, 0, 0);
     if (icon_out != NULL)
     {

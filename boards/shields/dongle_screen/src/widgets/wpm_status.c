@@ -78,16 +78,11 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
 #endif
 
     /*
-     * WPM value — bottom-anchored, fg-hi (#ececef).
-     *
-     * Font note: the design specifies a 26 px value font. Mono_28 (bpp2) is
-     * used for the value and Mono_20 for the suffix — 3 mono sizes total
-     * (Mono_28 / Mono_20 / Mono_12); icons NerdFonts_20/40 unchanged.
-     * Width check: "110"@28 ~50px + 18 gap + "wpm"@20 ~36px = ~104px ≤ 108px.
-     *
-     * Icon fallback: the F04C5 speedometer glyph is MISSING in both committed
-     * NerdFonts (font audit) — the widget renders text-only "NN wpm"
-     * (value + "wpm" suffix) and skips the icon entirely. Documented fallback.
+     * WPM value — bottom-anchored, fg-hi (#ececef), Mono_28 (bpp2).
+     * Speedometer icon (U+F04C5, NerdFonts_Regular_28) sits to the LEFT of the
+     * value with an 8px gap, vertically mid-aligned — no text suffix, so no
+     * clipping in the 108px cell. Width: icon@28 ~17px + 8 gap + "110"@28
+     * ~50px = ~75px ≤ 108px. Icons: NerdFonts 20/40/28; mono: 28/20/12.
      */
     widget->wpm_value = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->wpm_value, &Mono_28, 0);
@@ -95,12 +90,11 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
     lv_obj_align(widget->wpm_value, LV_ALIGN_BOTTOM_MID, 0, -3);
     lv_label_set_text_static(widget->wpm_value, "0");
 
-    widget->wpm_suffix = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->wpm_suffix, &Mono_20, 0);
-    lv_obj_set_style_text_color(widget->wpm_suffix, lv_color_hex(0x383842), 0);
-    lv_obj_set_style_text_letter_space(widget->wpm_suffix, 2, 0);
-    lv_label_set_text_static(widget->wpm_suffix, "wpm");
-    lv_obj_align_to(widget->wpm_suffix, widget->wpm_value, LV_ALIGN_OUT_RIGHT_MID, 18, 0);
+    widget->wpm_icon = lv_label_create(widget->obj);
+    lv_obj_set_style_text_font(widget->wpm_icon, &NerdFonts_Regular_28, 0);
+    lv_obj_set_style_text_color(widget->wpm_icon, lv_color_hex(0x9a9aa5), 0);
+    lv_label_set_text_static(widget->wpm_icon, "\uF04C5");
+    lv_obj_align_to(widget->wpm_icon, widget->wpm_value, LV_ALIGN_OUT_LEFT_MID, -8, 0);
 
     sys_slist_append(&widgets, &widget->node);
 
