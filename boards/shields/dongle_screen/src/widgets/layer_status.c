@@ -14,6 +14,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/keymap.h>
 
 #include "layer_status.h"
+#include <fonts.h>
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -81,7 +82,7 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
     /* Layer icon U+EBD2 is missing from the committed fonts (design §5 audit), so the
      * documented fallback renders the layer name as plain text with no icon. */
     widget->layer_name = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->layer_name, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_obj_set_style_text_font(widget->layer_name, &Mono_20, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->layer_name, lv_color_hex(0xececef), LV_PART_MAIN);
     lv_label_set_text_static(widget->layer_name, "");
     lv_obj_align(widget->layer_name, LV_ALIGN_CENTER, 0, 0);

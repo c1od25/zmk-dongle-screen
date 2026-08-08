@@ -20,6 +20,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include "battery_status.h"
 #include "../brightness.h"
+#include <fonts.h>
 
 #if IS_ENABLED(CONFIG_ZMK_DONGLE_DISPLAY_DONGLE_BATTERY)
 #define SOURCE_OFFSET 1
@@ -359,9 +360,9 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
 
         /* Percent text icon — battery glyphs U+F240..F244 are NOT in the
          * committed NerdFonts (font audit), so render the level as text.
-         * Uses the default montserrat_20 (digits/percent are not in NerdFonts). */
+         * Uses the default Mono_20 (digits/percent are not in NerdFonts). */
         lv_obj_t *icon = lv_label_create(widget->obj);
-        lv_obj_set_style_text_font(icon, &lv_font_montserrat_20, 0);
+        lv_obj_set_style_text_font(icon, &Mono_20, 0);
         lv_obj_set_style_text_color(icon, lv_color_hex(0x9a9aa5), 0);
         lv_obj_align(icon, LV_ALIGN_TOP_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
                      BATTERY_ICON_Y);

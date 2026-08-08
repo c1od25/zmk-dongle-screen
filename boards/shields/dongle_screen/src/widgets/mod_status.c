@@ -79,7 +79,7 @@ static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const c
 
     lv_obj_t *mk_name = lv_label_create(key);
     lv_label_set_text(mk_name, name);
-    lv_obj_set_style_text_font(mk_name, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_font(mk_name, &Mono_12, LV_PART_MAIN);
     lv_obj_align_to(mk_name, mk_icon, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
 
     return key;
