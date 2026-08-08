@@ -14,6 +14,7 @@ struct zmk_widget_showkey_status
     sys_snode_t node;
     lv_obj_t *obj;
     lv_obj_t *label;
+    lv_timer_t *hold_timer;
 };
 
 int zmk_widget_showkey_status_init(struct zmk_widget_showkey_status *widget, lv_obj_t *parent);

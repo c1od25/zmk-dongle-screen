@@ -99,6 +99,34 @@ static struct showkey_status_state get_state(const zmk_event_t *_eh)
     };
 }
 
+static void showkey_fade_cb(void *obj, int32_t v)
+{
+    lv_obj_set_style_opa(obj, (lv_opa_t)v, LV_PART_MAIN);
+}
+
+static void showkey_fade_done_cb(lv_anim_t *a)
+{
+    /* Fade finished: clear the text and restore full opacity for next press. */
+    lv_label_set_text_static(a->var, "");
+    lv_obj_set_style_opa(a->var, LV_OPA_COVER, LV_PART_MAIN);
+}
+
+/* Released key stays visible for the hold delay, then fades out (255→0, 400ms). */
+static void showkey_hold_timeout(lv_timer_t *t)
+{
+    struct zmk_widget_showkey_status *widget = lv_timer_get_user_data(t);
+    widget->hold_timer = NULL;
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, widget->label);
+    lv_anim_set_exec_cb(&a, showkey_fade_cb);
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+    lv_anim_set_duration(&a, 400);
+    lv_anim_set_completed_cb(&a, showkey_fade_done_cb);
+    lv_anim_start(&a);
+}
+
 static void showkey_status_update_cb(struct showkey_status_state state)
 {
     struct zmk_widget_showkey_status *widget;
@@ -106,14 +134,23 @@ static void showkey_status_update_cb(struct showkey_status_state state)
     {
         if (state.pressed)
         {
+            /* New key: cancel any pending hold timer or running fade. */
+            if (widget->hold_timer != NULL)
+            {
+                lv_timer_delete(widget->hold_timer);
+                widget->hold_timer = NULL;
+            }
+            lv_anim_delete(widget->label, NULL);
+            lv_obj_set_style_opa(widget->label, LV_OPA_COVER, LV_PART_MAIN);
+
             const char *name = lookup_key_name(state.usage_page, state.keycode);
             lv_label_set_text_static(widget->label, name != NULL ? name : "KEY");
             lv_obj_set_style_text_color(widget->label, lv_color_hex(0xef4d43), LV_PART_MAIN);
         }
-        else
+        else if (widget->hold_timer == NULL)
         {
-            lv_label_set_text_static(widget->label, "");
-            lv_obj_set_style_text_color(widget->label, lv_color_hex(0xececef), LV_PART_MAIN);
+            /* Released: keep the text visible until the hold timer fires. */
+            widget->hold_timer = lv_timer_create(showkey_hold_timeout, 800, widget);
         }
     }
 }

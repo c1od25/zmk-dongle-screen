@@ -9,7 +9,7 @@
 #include <lvgl.h>
 #include <zephyr/kernel.h>
 
-#define SCANNER_BLOCK_N 15
+#define SCANNER_BLOCK_N 10
 
 /* Block-character scanning loading animation (kr_4_12 rhythm). Occupies the
  * same screen cell as the WPM widget but is a pure animation (no ZMK events).

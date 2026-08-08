@@ -9,33 +9,34 @@
 
 #include "scanner_status.h"
 
-/* Block-character scanning loading animation (user-approved kr_4_12 rhythm).
- * 15 discrete square blocks; the head always advances (never stops at ends),
- * a 6-level exponential trail follows behind it, with a 4-frame go-back gap
- * and a 12-frame cycle gap of all-inactive dots. A 60ms lv_timer drives a
- * frame counter on the display thread (no ZMK events, zero dynamic alloc).
+/* Block-character scanning loading animation (kr_4_12 rhythm scaled to 10
+ * blocks). The head always advances (never stops at ends), a 6-level
+ * exponential trail follows behind it, with a 4-frame go-back gap and a
+ * 12-frame cycle gap of all-inactive dots. A 60ms lv_timer drives a frame
+ * counter on the display thread (no ZMK events, zero dynamic alloc).
  */
 #define SCANNER_FRAME_MS  60
-#define SCANNER_CYCLE     56 /* 15 fwd + 5 out + 4 gap + 15 back + 5 out + 12 gap */
+#define SCANNER_CYCLE     46 /* 10 fwd + 5 out + 4 gap + 10 back + 5 out + 12 gap */
 
-#define SCANNER_BLOCK_SIZE 6
-#define SCANNER_DOT_SIZE   3
-#define SCANNER_GAP        1
+#define SCANNER_BLOCK_SIZE 9
+#define SCANNER_DOT_SIZE   4
+#define SCANNER_GAP        2
+#define SCANNER_DOT_OFF    ((SCANNER_BLOCK_SIZE - SCANNER_DOT_SIZE) / 2) /* 2 */
 
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
 #define SCANNER_CELL_X      60
 #define SCANNER_CELL_Y      174
 #define SCANNER_CELL_W      200
 #define SCANNER_CELL_H      56
-#define SCANNER_BLOCKS_X    48 /* (200 - (15*6 + 14*1))/2 */
-#define SCANNER_BLOCKS_Y    25 /* (56 - 6)/2 */
+#define SCANNER_BLOCKS_X    46 /* (200 - (10*9 + 9*2))/2 */
+#define SCANNER_BLOCKS_Y    23 /* (56 - 9)/2 */
 #else
 #define SCANNER_CELL_X      66
 #define SCANNER_CELL_Y      226
 #define SCANNER_CELL_W      108
 #define SCANNER_CELL_H      82
-#define SCANNER_BLOCKS_X    2  /* (108 - 104)/2 */
-#define SCANNER_BLOCKS_Y    38 /* (82 - 6)/2 */
+#define SCANNER_BLOCKS_X    0  /* (108 - 108)/2 */
+#define SCANNER_BLOCKS_Y    36 /* (82 - 9)/2 */
 #endif
 
 /* Trail alphas (head then 5 exponential-decay steps); inactive dot is a
@@ -70,24 +71,24 @@ static void scan_timer_cb(lv_timer_t *t)
     int head, dir;
     bool all_inactive;
 
-    if (f < 15) {
+    if (f < 10) {
         head = f;
         dir = 1;
         all_inactive = false;
-    } else if (f < 20) {
-        head = f;               /* 15..19: head exits the right edge */
+    } else if (f < 15) {
+        head = f;               /* 10..14: head exits the right edge */
         dir = 1;
         all_inactive = false;
-    } else if (f < 24) {
+    } else if (f < 19) {
         all_inactive = true;    /* go-back gap (4 frames) */
         head = 0;
         dir = 1;
-    } else if (f < 39) {
-        head = 14 - (f - 24);   /* 14..0 */
+    } else if (f < 29) {
+        head = 9 - (f - 19);    /* 9..0 */
         dir = -1;
         all_inactive = false;
-    } else if (f < 44) {
-        head = -1 - (f - 39);   /* -1..-5: head exits the left edge */
+    } else if (f < 34) {
+        head = -1 - (f - 29);   /* -1..-5: head exits the left edge */
         dir = -1;
         all_inactive = false;
     } else {
@@ -114,10 +115,10 @@ static void scan_timer_cb(lv_timer_t *t)
         last_state[i] = state;
         lv_obj_t *b = widget->blocks[i];
         if (state == 0) {
-            /* Inactive: 3x3 dot, centered (offset +1 in the 6x6 slot). */
+            /* Inactive: small dot, centered (SCANNER_DOT_OFF in the slot). */
             lv_obj_set_size(b, SCANNER_DOT_SIZE, SCANNER_DOT_SIZE);
-            lv_obj_set_pos(b, SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + 1,
-                           SCANNER_BLOCKS_Y + 1);
+            lv_obj_set_pos(b, SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + SCANNER_DOT_OFF,
+                           SCANNER_BLOCKS_Y + SCANNER_DOT_OFF);
             lv_obj_set_style_bg_color(b, inactive_color, LV_PART_MAIN);
         } else {
             lv_obj_set_size(b, SCANNER_BLOCK_SIZE, SCANNER_BLOCK_SIZE);
@@ -146,8 +147,8 @@ int zmk_widget_scanner_status_init(struct zmk_widget_scanner_status *widget, lv_
     for (int i = 0; i < SCANNER_BLOCK_N; i++) {
         lv_obj_t *b = lv_obj_create(widget->obj);
         lv_obj_set_size(b, SCANNER_DOT_SIZE, SCANNER_DOT_SIZE);
-        lv_obj_set_pos(b, SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + 1,
-                       SCANNER_BLOCKS_Y + 1);
+        lv_obj_set_pos(b, SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + SCANNER_DOT_OFF,
+                       SCANNER_BLOCKS_Y + SCANNER_DOT_OFF);
         lv_obj_set_style_bg_color(b, inactive_color, LV_PART_MAIN);
         lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_set_style_radius(b, 0, LV_PART_MAIN); /* sharp corners */
