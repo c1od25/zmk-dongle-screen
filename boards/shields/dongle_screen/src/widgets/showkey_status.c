@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
+#include <string.h>
 #include <zmk/display.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
@@ -26,66 +27,129 @@ struct showkey_status_state
     uint32_t keycode;
 };
 
-/* HID usage (keyboard page 0x07) → concise display name. Mono_36 advance
- * 0.6em = 21.6px/char → 5 chars fit the 108px portrait cell; all names ≤5. */
+enum showkey_kind
+{
+    SHOWKEY_TEXT,      /* Mono_36 name only */
+    SHOWKEY_ICON,      /* Nerd Font icon only */
+    SHOWKEY_SIDE_ICON, /* L/R prefix (Mono_36) + Nerd Font icon */
+};
+
+struct showkey_lookup
+{
+    enum showkey_kind kind;
+    const char *side; /* "L"/"R" for SHOWKEY_SIDE_ICON */
+    const char *icon; /* Nerd Font PUA glyph */
+    const char *text; /* Mono_36 name */
+};
+
+/* Nerd Font PUA glyphs — codepoints verified against nerd-fonts-generated.css
+ * and present in NerdFonts_Regular_40 (see src/fonts/NerdFonts_Regular_40.c). */
+#define ICON_CTRL  "\U000F0634" /* nf-md-apple_keyboard_control */
+#define ICON_SHIFT "\U000F0636" /* nf-md-apple_keyboard_shift */
+#define ICON_ALT   "\U000F0635" /* nf-md-apple_keyboard_option */
+#define ICON_GUI   "\U000F0633" /* nf-md-apple_keyboard_command */
+#define ICON_UP    "\U000F0737" /* nf-md-arrow_up_bold */
+#define ICON_DOWN  "\U000F072E" /* nf-md-arrow_down_bold */
+#define ICON_LEFT  "\U000F0731" /* nf-md-arrow_left_bold */
+#define ICON_RIGHT "\U000F0734" /* nf-md-arrow_right_bold */
+#define ICON_SPACE "\U000F1050" /* nf-md-keyboard_space */
+#define ICON_ENTER "\U000F0311" /* nf-md-keyboard_return */
+#define ICON_BSPC  "\U000F030D" /* nf-md-keyboard_backspace */
+#define ICON_TAB   "\U000F0312" /* nf-md-keyboard_tab */
+#define ICON_ESC   "\U000F12B7" /* nf-md-keyboard_esc */
+#define ICON_CAPS  "\U000F030E" /* nf-md-keyboard_caps */
+
+/* HID usage (keyboard page 0x07) → icon (with optional L/R side prefix). */
+static const struct key_icon
+{
+    uint8_t usage;
+    enum showkey_kind kind;
+    const char *side;
+    const char *icon;
+} key_icons[] = {
+    {0xE0, SHOWKEY_SIDE_ICON, "L", ICON_CTRL},  {0xE1, SHOWKEY_SIDE_ICON, "L", ICON_SHIFT},
+    {0xE2, SHOWKEY_SIDE_ICON, "L", ICON_ALT},   {0xE3, SHOWKEY_SIDE_ICON, "L", ICON_GUI},
+    {0xE4, SHOWKEY_SIDE_ICON, "R", ICON_CTRL},  {0xE5, SHOWKEY_SIDE_ICON, "R", ICON_SHIFT},
+    {0xE6, SHOWKEY_SIDE_ICON, "R", ICON_ALT},   {0xE7, SHOWKEY_SIDE_ICON, "R", ICON_GUI},
+    {0x4F, SHOWKEY_ICON, NULL, ICON_RIGHT},     {0x50, SHOWKEY_ICON, NULL, ICON_LEFT},
+    {0x51, SHOWKEY_ICON, NULL, ICON_DOWN},      {0x52, SHOWKEY_ICON, NULL, ICON_UP},
+    {0x2C, SHOWKEY_ICON, NULL, ICON_SPACE},     {0x28, SHOWKEY_ICON, NULL, ICON_ENTER},
+    {0x2A, SHOWKEY_ICON, NULL, ICON_BSPC},      {0x2B, SHOWKEY_ICON, NULL, ICON_TAB},
+    {0x29, SHOWKEY_ICON, NULL, ICON_ESC},       {0x39, SHOWKEY_ICON, NULL, ICON_CAPS},
+};
+
+/* Remaining non-icon keys keep their concise Mono_36 names. */
 static const struct key_name
 {
     uint8_t usage;
     const char *name;
 } key_names[] = {
-    {0x28, "ENT"},    {0x29, "ESC"},   {0x2A, "BSPC"},  {0x2B, "TAB"},
-    {0x2C, "SPC"},    {0x2D, "MINUS"}, {0x2E, "="},     {0x2F, "["},
-    {0x30, "]"},      {0x31, "\\"},    {0x33, ";"},     {0x34, "'"},
-    {0x35, "`"},      {0x36, ","},     {0x37, "."},     {0x38, "/"},
-    {0x39, "CAPS"},   {0x46, "PRTSC"}, {0x47, "SCRLK"}, {0x48, "PAUSE"},
-    {0x49, "INS"},    {0x4A, "HOME"},  {0x4B, "PGUP"},  {0x4C, "DEL"},
-    {0x4D, "END"},    {0x4E, "PGDN"},  {0x4F, "RIGHT"}, {0x50, "LEFT"},
-    {0x51, "DOWN"},   {0x52, "UP"},    {0x53, "NUMLK"},
-    {0x54, "KP/"},    {0x55, "KP*"},   {0x56, "KP-"},   {0x57, "KP+"},
-    {0x58, "KPENT"},  {0x59, "KP1"},   {0x5A, "KP2"},   {0x5B, "KP3"},
-    {0x5C, "KP4"},    {0x5D, "KP5"},   {0x5E, "KP6"},   {0x5F, "KP7"},
-    {0x60, "KP8"},    {0x61, "KP9"},   {0x62, "KP0"},   {0x63, "KP."},
-    {0xE0, "LCTL"},   {0xE1, "LSHFT"}, {0xE2, "LALT"},  {0xE3, "LGUI"},
-    {0xE4, "RCTL"},   {0xE5, "RSHFT"}, {0xE6, "RALT"},  {0xE7, "RGUI"},
+    {0x2D, "MINUS"}, {0x2E, "="},    {0x2F, "["},    {0x30, "]"},
+    {0x31, "\\"},    {0x33, ";"},    {0x34, "'"},    {0x35, "`"},
+    {0x36, ","},     {0x37, "."},    {0x38, "/"},    {0x46, "PRTSC"},
+    {0x47, "SCRLK"}, {0x48, "PAUSE"},{0x49, "INS"},  {0x4A, "HOME"},
+    {0x4B, "PGUP"},  {0x4C, "DEL"},  {0x4D, "END"},  {0x4E, "PGDN"},
+    {0x53, "NUMLK"}, {0x54, "KP/"},  {0x55, "KP*"},  {0x56, "KP-"},
+    {0x57, "KP+"},   {0x58, "KPENT"},{0x59, "KP1"},  {0x5A, "KP2"},
+    {0x5B, "KP3"},   {0x5C, "KP4"},  {0x5D, "KP5"},  {0x5E, "KP6"},
+    {0x5F, "KP7"},   {0x60, "KP8"},  {0x61, "KP9"},  {0x62, "KP0"},
+    {0x63, "KP."},
 };
 
 /* Static text buffer — lv_label_set_text_static() does NOT copy. */
 static char showkey_buf[16];
 
-static const char *lookup_key_name(uint16_t usage_page, uint32_t keycode)
+static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycode)
 {
+    struct showkey_lookup r = {.kind = SHOWKEY_TEXT, .text = NULL};
     uint32_t u = keycode;
 
     if (usage_page != HID_USAGE_KEY)
     {
-        return NULL;
+        return r;
     }
+
+    for (size_t i = 0; i < ARRAY_SIZE(key_icons); i++)
+    {
+        if (key_icons[i].usage == u)
+        {
+            r.kind = key_icons[i].kind;
+            r.side = key_icons[i].side;
+            r.icon = key_icons[i].icon;
+            return r;
+        }
+    }
+
     if (u >= 0x04 && u <= 0x1D) /* letters A-Z */
     {
         showkey_buf[0] = (char)('A' + (u - 0x04));
         showkey_buf[1] = '\0';
-        return showkey_buf;
+        r.text = showkey_buf;
     }
-    if (u >= 0x1E && u <= 0x27) /* digits 1-0 */
+    else if (u >= 0x1E && u <= 0x27) /* digits 1-0 */
     {
         static const char digits[] = "1234567890";
         showkey_buf[0] = digits[(u - 0x1E) % 10];
         showkey_buf[1] = '\0';
-        return showkey_buf;
+        r.text = showkey_buf;
     }
-    if (u >= 0x3A && u <= 0x45) /* F1-F12 */
+    else if (u >= 0x3A && u <= 0x45) /* F1-F12 */
     {
         snprintf(showkey_buf, sizeof(showkey_buf), "F%u", (unsigned)(u - 0x3A + 1));
-        return showkey_buf;
+        r.text = showkey_buf;
     }
-    for (size_t i = 0; i < ARRAY_SIZE(key_names); i++)
+    else
     {
-        if (key_names[i].usage == u)
+        for (size_t i = 0; i < ARRAY_SIZE(key_names); i++)
         {
-            return key_names[i].name;
+            if (key_names[i].usage == u)
+            {
+                r.text = key_names[i].name;
+                break;
+            }
         }
     }
-    return NULL;
+    return r;
 }
 
 static struct showkey_status_state get_state(const zmk_event_t *_eh)
@@ -99,21 +163,24 @@ static struct showkey_status_state get_state(const zmk_event_t *_eh)
     };
 }
 
-static void showkey_fade_cb(void *obj, int32_t v)
+static void showkey_fade_cb(void *widget, int32_t v)
 {
-    lv_obj_set_style_opa(obj, (lv_opa_t)v, LV_PART_MAIN);
+    struct zmk_widget_showkey_status *w = widget;
+    lv_obj_set_style_opa(w->label, (lv_opa_t)v, LV_PART_MAIN);
+    lv_obj_set_style_opa(w->icon_label, (lv_opa_t)v, LV_PART_MAIN);
 }
 
 static void showkey_fade_done_cb(lv_anim_t *a)
 {
-    /* Fade finished: clear the text and restore full opacity for next press. */
     struct zmk_widget_showkey_status *widget = lv_anim_get_user_data(a);
     if (widget != NULL)
     {
         widget->hold_timer = NULL;
     }
-    lv_label_set_text_static(a->var, "");
-    lv_obj_set_style_opa(a->var, LV_OPA_COVER, LV_PART_MAIN);
+    lv_label_set_text_static(widget->label, "");
+    lv_label_set_text_static(widget->icon_label, "");
+    lv_obj_set_style_opa(widget->label, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_opa(widget->icon_label, LV_OPA_COVER, LV_PART_MAIN);
 }
 
 /* Released key stays visible for the hold delay, then fades out (255→0, 400ms). */
@@ -122,16 +189,61 @@ static void showkey_hold_timeout(lv_timer_t *t)
     struct zmk_widget_showkey_status *widget = lv_timer_get_user_data(t);
     widget->hold_timer = NULL;
 
-    lv_anim_delete(widget->label, NULL); /* no stacked fades */
+    lv_anim_delete(widget, NULL); /* no stacked fades */
     lv_anim_t a;
     lv_anim_init(&a);
-    lv_anim_set_var(&a, widget->label);
+    lv_anim_set_var(&a, widget);
     lv_anim_set_user_data(&a, widget);
     lv_anim_set_exec_cb(&a, showkey_fade_cb);
     lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
     lv_anim_set_duration(&a, 400);
     lv_anim_set_completed_cb(&a, showkey_fade_done_cb);
     lv_anim_start(&a);
+}
+
+/* SHOWKEY_SIDE_ICON: center the L/R prefix and icon as one group in the cell. */
+static void showkey_align(struct zmk_widget_showkey_status *widget, struct showkey_lookup *r)
+{
+    if (r->kind == SHOWKEY_SIDE_ICON)
+    {
+        const char *side = lv_label_get_text(widget->label);
+        const char *icon = lv_label_get_text(widget->icon_label);
+        lv_coord_t side_w =
+            lv_text_get_width(side, (uint32_t)strlen(side),
+                              lv_obj_get_style_text_font(widget->label, LV_PART_MAIN),
+                              lv_obj_get_style_text_letter_space(widget->label, LV_PART_MAIN));
+        lv_coord_t icon_w =
+            lv_text_get_width(icon, (uint32_t)strlen(icon),
+                              lv_obj_get_style_text_font(widget->icon_label, LV_PART_MAIN),
+                              lv_obj_get_style_text_letter_space(widget->icon_label, LV_PART_MAIN));
+        lv_coord_t gap = 4;
+        lv_coord_t half = (side_w + gap + icon_w) / 2;
+        lv_obj_align(widget->label, LV_ALIGN_CENTER, -(half - side_w / 2), 0);
+        lv_obj_align(widget->icon_label, LV_ALIGN_CENTER, (half - icon_w / 2), 0);
+    }
+    else if (r->kind == SHOWKEY_ICON)
+    {
+        lv_obj_align(widget->icon_label, LV_ALIGN_CENTER, 0, 0);
+    }
+    else
+    {
+        lv_obj_align(widget->label, LV_ALIGN_CENTER, 0, 0);
+    }
+}
+
+static void showkey_apply(struct zmk_widget_showkey_status *widget, struct showkey_lookup *r)
+{
+    if (r->kind == SHOWKEY_TEXT)
+    {
+        lv_label_set_text_static(widget->label, r->text != NULL ? r->text : "KEY");
+        lv_label_set_text_static(widget->icon_label, "");
+    }
+    else
+    {
+        lv_label_set_text_static(widget->label, r->side != NULL ? r->side : "");
+        lv_label_set_text_static(widget->icon_label, r->icon != NULL ? r->icon : "");
+    }
+    showkey_align(widget, r);
 }
 
 static void showkey_status_update_cb(struct showkey_status_state state)
@@ -141,34 +253,33 @@ static void showkey_status_update_cb(struct showkey_status_state state)
     {
         if (state.pressed)
         {
-            /* New key: cancel any pending hold timer or running fade. */
             if (widget->hold_timer != NULL)
             {
                 lv_timer_delete(widget->hold_timer);
                 widget->hold_timer = NULL;
             }
-            lv_anim_delete(widget->label, NULL);
+            lv_anim_delete(widget, NULL);
             lv_obj_set_style_opa(widget->label, LV_OPA_COVER, LV_PART_MAIN);
+            lv_obj_set_style_opa(widget->icon_label, LV_OPA_COVER, LV_PART_MAIN);
 
-            const char *name = lookup_key_name(state.usage_page, state.keycode);
-            lv_label_set_text_static(widget->label, name != NULL ? name : "KEY");
+            struct showkey_lookup r = lookup_showkey(state.usage_page, state.keycode);
+            showkey_apply(widget, &r);
             lv_obj_set_style_text_color(widget->label, lv_color_hex(0xef4d43), LV_PART_MAIN);
+            lv_obj_set_style_text_color(widget->icon_label, lv_color_hex(0xef4d43), LV_PART_MAIN);
         }
         else
         {
-            /* Ignore releases when nothing is shown (widget init sends a
-             * NULL-event "release" — do NOT start a timer on the empty label). */
-            if (lv_label_get_text(widget->label)[0] == '\0')
+            if (lv_label_get_text(widget->label)[0] == '\0' &&
+                lv_label_get_text(widget->icon_label)[0] == '\0')
             {
                 continue;
             }
-            /* Restart the hold: cancel any previous timer/fade first. */
             if (widget->hold_timer != NULL)
             {
                 lv_timer_delete(widget->hold_timer);
                 widget->hold_timer = NULL;
             }
-            lv_anim_delete(widget->label, NULL);
+            lv_anim_delete(widget, NULL);
             widget->hold_timer = lv_timer_create(showkey_hold_timeout, 800, widget);
             lv_timer_set_repeat_count(widget->hold_timer, 1);
         }
@@ -192,13 +303,19 @@ int zmk_widget_showkey_status_init(struct zmk_widget_showkey_status *widget, lv_
     lv_obj_set_pos(widget->obj, 66, 138);
 #endif
 
-    /* Mono_36 (full ASCII) — two size steps up from Mono_20; NerdFonts_20 has
-     * only PUA icons, no letters. Empty text until a key is pressed. */
+    /* Mono_36 (full ASCII) — text keys plus the L/R prefix for mods. */
     widget->label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->label, &Mono_36, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->label, lv_color_hex(0xececef), LV_PART_MAIN);
     lv_label_set_text_static(widget->label, "");
     lv_obj_align(widget->label, LV_ALIGN_CENTER, 0, 0);
+
+    /* NerdFonts_Regular_40 — icon glyphs (mods/arrows/special keys). */
+    widget->icon_label = lv_label_create(widget->obj);
+    lv_obj_set_style_text_font(widget->icon_label, &NerdFonts_Regular_40, LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->icon_label, lv_color_hex(0xececef), LV_PART_MAIN);
+    lv_label_set_text_static(widget->icon_label, "");
+    lv_obj_align(widget->icon_label, LV_ALIGN_CENTER, 0, 0);
 
     sys_slist_append(&widgets, &widget->node);
 

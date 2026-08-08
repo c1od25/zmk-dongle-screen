@@ -13,7 +13,8 @@ struct zmk_widget_showkey_status
 {
     sys_snode_t node;
     lv_obj_t *obj;
-    lv_obj_t *label;
+    lv_obj_t *label;      /* Mono_36: text keys, or the L/R prefix for mods */
+    lv_obj_t *icon_label; /* NerdFonts_Regular_40: modifier/arrow/special icons */
     lv_timer_t *hold_timer;
 };
 
