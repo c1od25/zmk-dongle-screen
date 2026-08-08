@@ -97,13 +97,11 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 /* Bar styles (design doc §4): track on LV_PART_MAIN, tier on LV_PART_INDICATOR. */
 static lv_style_t style_bar_track;
 static lv_style_t style_bar_hi;
-static lv_style_t style_bar_mid;
 static lv_style_t style_bar_lo;
 
 enum battery_bar_tier
 {
     BATTERY_BAR_HI,
-    BATTERY_BAR_MID,
     BATTERY_BAR_LO,
 };
 
@@ -121,15 +119,8 @@ static void init_bar_styles(void)
     lv_style_set_bg_opa(&style_bar_hi, LV_OPA_COVER);
     lv_style_set_radius(&style_bar_hi, 3);
 
-    lv_style_init(&style_bar_mid);
-    lv_style_set_bg_color(&style_bar_mid, lv_color_hex(0x4a3a3a));
-    lv_style_set_bg_grad_color(&style_bar_mid, lv_color_hex(0x7a2a26));
-    lv_style_set_bg_grad_dir(&style_bar_mid, LV_GRAD_DIR_VER);
-    lv_style_set_bg_opa(&style_bar_mid, LV_OPA_COVER);
-    lv_style_set_radius(&style_bar_mid, 3);
-
     lv_style_init(&style_bar_lo);
-    lv_style_set_bg_color(&style_bar_lo, lv_color_hex(0xe8453c));
+    lv_style_set_bg_color(&style_bar_lo, lv_color_hex(0xef4d43));
     lv_style_set_bg_opa(&style_bar_lo, LV_OPA_COVER);
     lv_style_set_radius(&style_bar_lo, 3);
 }
@@ -137,13 +128,9 @@ static void init_bar_styles(void)
 static void set_bar_tier(lv_obj_t *bar, enum battery_bar_tier tier)
 {
     lv_obj_remove_style(bar, &style_bar_hi, LV_PART_INDICATOR);
-    lv_obj_remove_style(bar, &style_bar_mid, LV_PART_INDICATOR);
     lv_obj_remove_style(bar, &style_bar_lo, LV_PART_INDICATOR);
     switch (tier)
     {
-    case BATTERY_BAR_MID:
-        lv_obj_add_style(bar, &style_bar_mid, LV_PART_INDICATOR);
-        break;
     case BATTERY_BAR_LO:
         lv_obj_add_style(bar, &style_bar_lo, LV_PART_INDICATOR);
         break;
@@ -223,45 +210,31 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
         /* Disconnected: empty bar, red "X" tag (design §1). */
         lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0xe8453c), 0);
+        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0xef4d43), 0);
         lv_label_set_text_static(slot->icon, "0%");
-        lv_obj_set_style_text_color(slot->tag, lv_color_hex(0xe8453c), 0);
+        lv_obj_set_style_text_color(slot->tag, lv_color_hex(0xef4d43), 0);
         lv_label_set_text_static(slot->tag, "X");
         return;
     }
 
     LOG_DBG("source: %d, level: %d, usb: %d", state.source, state.level, state.usb_present);
 
-    /* Bar fill (no animation on updates) + tier: >50 hi, >20 mid, <=20 lo. */
+    /* Bar fill (no animation on updates) + tier: <30 lo (red), else hi. */
     lv_bar_set_value(slot->bar, state.level, LV_ANIM_OFF);
-    if (state.level > 50)
-    {
-        set_bar_tier(slot->bar, BATTERY_BAR_HI);
-    }
-    else if (state.level > 20)
-    {
-        set_bar_tier(slot->bar, BATTERY_BAR_MID);
-    }
-    else
+    if (state.level < 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
-    }
-
-    /* Icon: "NN%" percent text, color per level (design §1 table). */
-    snprintf(slot->text, sizeof(slot->text), "%u%%", state.level);
-    lv_label_set_text_static(slot->icon, slot->text);
-    if (state.level > 45)
-    {
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
-    }
-    else if (state.level > 20)
-    {
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x7a2a26), 0);
+        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0xef4d43), 0);
     }
     else
     {
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0xe8453c), 0);
+        set_bar_tier(slot->bar, BATTERY_BAR_HI);
+        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
     }
+
+    /* Icon: "NN%" percent text, color per tier (design §1 table). */
+    snprintf(slot->text, sizeof(slot->text), "%u%%", state.level);
+    lv_label_set_text_static(slot->icon, slot->text);
 
     /* Tag: restore the slot designator after a disconnect "X". */
     lv_label_set_text_static(slot->tag, state.source == 0 ? "L" : "R");

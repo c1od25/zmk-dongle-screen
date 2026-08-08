@@ -42,7 +42,7 @@ static void layer_status_update_cb(struct layer_status_state state)
         lv_label_set_text_static(widget->layer_name, label);
 
         lv_obj_set_style_text_color(widget->layer_name,
-                                    state.index > 0 ? lv_color_hex(0xe8453c)
+                                    state.index > 0 ? lv_color_hex(0xef4d43)
                                                     : lv_color_hex(0xececef),
                                     LV_PART_MAIN);
     }

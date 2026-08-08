@@ -44,15 +44,15 @@ static struct output_status_state get_state(const zmk_event_t *_eh)
 
 #define COLOR_FG_MID ((lv_color_t)LV_COLOR_MAKE(0x9a, 0x9a, 0xa5))
 #define COLOR_FG_FAINT ((lv_color_t)LV_COLOR_MAKE(0x38, 0x38, 0x42))
-#define COLOR_RED ((lv_color_t)LV_COLOR_MAKE(0xe8, 0x45, 0x3c))
+#define COLOR_RED ((lv_color_t)LV_COLOR_MAKE(0xef, 0x4d, 0x43))
 
 static void set_status_symbol(struct zmk_widget_output_status *widget, struct output_status_state state)
 {
-    if (state.usb_is_hid_ready == 0)
+    if (state.usb_is_hid_ready && state.selected_endpoint.transport == ZMK_TRANSPORT_USB)
     {
         lv_obj_set_style_text_color(widget->usb_label, COLOR_RED, LV_PART_MAIN);
     }
-    else if (state.selected_endpoint.transport == ZMK_TRANSPORT_USB)
+    else if (state.usb_is_hid_ready)
     {
         lv_obj_set_style_text_color(widget->usb_label, COLOR_FG_MID, LV_PART_MAIN);
     }

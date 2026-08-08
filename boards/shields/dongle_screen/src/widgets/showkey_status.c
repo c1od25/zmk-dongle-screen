@@ -45,7 +45,7 @@ static void showkey_status_update_cb(struct showkey_status_state state)
     {
         if (state.pressed)
         {
-            lv_obj_set_style_text_color(widget->label, lv_color_hex(0xe8453c), LV_PART_MAIN);
+            lv_obj_set_style_text_color(widget->label, lv_color_hex(0xef4d43), LV_PART_MAIN);
             lv_timer_create(showkey_flash_timeout, 300, widget);
         }
     }
