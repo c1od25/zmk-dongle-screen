@@ -14,6 +14,7 @@ struct zmk_widget_sleep_status
     sys_snode_t node;
     lv_obj_t *obj;
     lv_obj_t *label;
+    lv_timer_t *poll_timer;
 };
 
 int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_t *parent);
