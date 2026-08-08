@@ -327,7 +327,7 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
          * orientations — Mono_20->line_height is the actual rendered height,
          * not an assumed constant. */
         lv_obj_t *bar = lv_bar_create(widget->obj);
-        int32_t tag_h = Mono_20->line_height;
+        int32_t tag_h = Mono_20.line_height;
         int32_t bar_h = BATTERY_TAG_BOTTOM - tag_h - BATTERY_TAG_GAP - BATTERY_BAR_Y;
         lv_obj_set_size(bar, BATTERY_BAR_W, bar_h);
         lv_obj_set_pos(bar, slot_bar_x[i], BATTERY_BAR_Y);
