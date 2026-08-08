@@ -18,25 +18,25 @@
 #define SCANNER_FRAME_MS  60
 #define SCANNER_CYCLE     46 /* 10 fwd + 5 out + 4 gap + 10 back + 5 out + 12 gap */
 
-#define SCANNER_BLOCK_SIZE 9
+#define SCANNER_BLOCK_SIZE 10
 #define SCANNER_DOT_SIZE   4
-#define SCANNER_GAP        2
-#define SCANNER_DOT_OFF    ((SCANNER_BLOCK_SIZE - SCANNER_DOT_SIZE) / 2) /* 2 */
+#define SCANNER_GAP        0
+#define SCANNER_DOT_OFF    ((SCANNER_BLOCK_SIZE - SCANNER_DOT_SIZE) / 2) /* 3 */
 
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
 #define SCANNER_CELL_X      60
 #define SCANNER_CELL_Y      174
 #define SCANNER_CELL_W      200
 #define SCANNER_CELL_H      56
-#define SCANNER_BLOCKS_X    46 /* (200 - (10*9 + 9*2))/2 */
-#define SCANNER_BLOCKS_Y    23 /* (56 - 9)/2 */
+#define SCANNER_BLOCKS_X    50 /* (200 - (10*10 + 9*0))/2 */
+#define SCANNER_BLOCKS_Y    23 /* (56 - 10)/2 */
 #else
 #define SCANNER_CELL_X      66
 #define SCANNER_CELL_Y      226
 #define SCANNER_CELL_W      108
 #define SCANNER_CELL_H      82
-#define SCANNER_BLOCKS_X    0  /* (108 - 108)/2 */
-#define SCANNER_BLOCKS_Y    36 /* (82 - 9)/2 */
+#define SCANNER_BLOCKS_X    4  /* (108 - 100)/2 */
+#define SCANNER_BLOCKS_Y    36 /* (82 - 10)/2 */
 #endif
 
 /* Trail alphas (head then 5 exponential-decay steps); inactive dot is a

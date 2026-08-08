@@ -107,6 +107,11 @@ static void showkey_fade_cb(void *obj, int32_t v)
 static void showkey_fade_done_cb(lv_anim_t *a)
 {
     /* Fade finished: clear the text and restore full opacity for next press. */
+    struct zmk_widget_showkey_status *widget = lv_anim_get_user_data(a);
+    if (widget != NULL)
+    {
+        widget->hold_timer = NULL;
+    }
     lv_label_set_text_static(a->var, "");
     lv_obj_set_style_opa(a->var, LV_OPA_COVER, LV_PART_MAIN);
 }
@@ -117,9 +122,11 @@ static void showkey_hold_timeout(lv_timer_t *t)
     struct zmk_widget_showkey_status *widget = lv_timer_get_user_data(t);
     widget->hold_timer = NULL;
 
+    lv_anim_delete(widget->label, NULL); /* no stacked fades */
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, widget->label);
+    lv_anim_set_user_data(&a, widget);
     lv_anim_set_exec_cb(&a, showkey_fade_cb);
     lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
     lv_anim_set_duration(&a, 400);
@@ -147,9 +154,21 @@ static void showkey_status_update_cb(struct showkey_status_state state)
             lv_label_set_text_static(widget->label, name != NULL ? name : "KEY");
             lv_obj_set_style_text_color(widget->label, lv_color_hex(0xef4d43), LV_PART_MAIN);
         }
-        else if (widget->hold_timer == NULL)
+        else
         {
-            /* Released: keep the text visible until the hold timer fires. */
+            /* Ignore releases when nothing is shown (widget init sends a
+             * NULL-event "release" — do NOT start a timer on the empty label). */
+            if (lv_label_get_text(widget->label)[0] == '\0')
+            {
+                continue;
+            }
+            /* Restart the hold: cancel any previous timer/fade first. */
+            if (widget->hold_timer != NULL)
+            {
+                lv_timer_delete(widget->hold_timer);
+                widget->hold_timer = NULL;
+            }
+            lv_anim_delete(widget->label, NULL);
             widget->hold_timer = lv_timer_create(showkey_hold_timeout, 800, widget);
         }
     }
