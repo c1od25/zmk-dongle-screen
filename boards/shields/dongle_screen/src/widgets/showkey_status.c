@@ -30,14 +30,6 @@ static struct showkey_status_state get_state(const zmk_event_t *_eh)
         .pressed = ev && ev->state};
 }
 
-static void showkey_flash_timeout(lv_timer_t *timer)
-{
-    struct zmk_widget_showkey_status *widget = lv_timer_get_user_data(timer);
-
-    lv_obj_set_style_text_color(widget->label, lv_color_hex(0xececef), LV_PART_MAIN);
-    lv_timer_delete(timer);
-}
-
 static void showkey_status_update_cb(struct showkey_status_state state)
 {
     struct zmk_widget_showkey_status *widget;
@@ -46,7 +38,10 @@ static void showkey_status_update_cb(struct showkey_status_state state)
         if (state.pressed)
         {
             lv_obj_set_style_text_color(widget->label, lv_color_hex(0xef4d43), LV_PART_MAIN);
-            lv_timer_create(showkey_flash_timeout, 300, widget);
+        }
+        else
+        {
+            lv_obj_set_style_text_color(widget->label, lv_color_hex(0xececef), LV_PART_MAIN);
         }
     }
 }

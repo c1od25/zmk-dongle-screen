@@ -80,22 +80,23 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
     /*
      * WPM value — bottom-anchored, fg-hi (#ececef).
      *
-     * Font note: the design specifies a 26 px value font, but no 26 px font is
-     * committed in the fork. JetBrainsMono Mono_20 is used for the value and
-     * Mono_12 for the suffix (3 font sizes total: Mono_20 / Mono_12 / NerdFonts_20).
+     * Font note: the design specifies a 26 px value font. Mono_28 (bpp2) is
+     * used for the value and Mono_20 for the suffix — 3 mono sizes total
+     * (Mono_28 / Mono_20 / Mono_12); icons NerdFonts_20/40 unchanged.
+     * Width check: "110"@28 ~50px + 18 gap + "wpm"@20 ~36px = ~104px ≤ 108px.
      *
      * Icon fallback: the F04C5 speedometer glyph is MISSING in both committed
      * NerdFonts (font audit) — the widget renders text-only "NN wpm"
      * (value + "wpm" suffix) and skips the icon entirely. Documented fallback.
      */
     widget->wpm_value = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->wpm_value, &Mono_20, 0);
+    lv_obj_set_style_text_font(widget->wpm_value, &Mono_28, 0);
     lv_obj_set_style_text_color(widget->wpm_value, lv_color_hex(0xECECEF), 0);
     lv_obj_align(widget->wpm_value, LV_ALIGN_BOTTOM_MID, 0, -3);
     lv_label_set_text_static(widget->wpm_value, "0");
 
     widget->wpm_suffix = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->wpm_suffix, &Mono_12, 0);
+    lv_obj_set_style_text_font(widget->wpm_suffix, &Mono_20, 0);
     lv_obj_set_style_text_color(widget->wpm_suffix, lv_color_hex(0x383842), 0);
     lv_obj_set_style_text_letter_space(widget->wpm_suffix, 2, 0);
     lv_label_set_text_static(widget->wpm_suffix, "wpm");
