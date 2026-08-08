@@ -16,7 +16,7 @@ config ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
     select LV_USE_ANIMATION
     select LV_USE_LINE 
     select LV_FONT_UNSCII_8
-    select ZMK_WPM if DONGLE_SCREEN_WPM_ACTIVE
+    select LV_USE_GIF
     imply ZMK_HID_INDICATORS
 
 config ZMK_DONGLE_DISPLAY_DONGLE_BATTERY
@@ -154,6 +154,14 @@ config DONGLE_SCREEN_SCANNER_ACTIVE
     help
       Block-character scanning loading animation in the former WPM cell.
       Mutually exclusive with the WPM widget (both default off).
+
+config DONGLE_SCREEN_GIF_ACTIVE
+    bool "GIF animation widget active"
+    default n
+    depends on !DONGLE_SCREEN_WPM_ACTIVE && !DONGLE_SCREEN_SCANNER_ACTIVE
+    help
+      Plays an embedded GIF animation in the former WPM cell. Mutually
+      exclusive with the WPM and scanner widgets (all default off).
 
 config DONGLE_SCREEN_MODIFIER_ACTIVE
     bool "Modifier Widget active"
