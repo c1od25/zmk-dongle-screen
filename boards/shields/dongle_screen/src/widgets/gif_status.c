@@ -11,9 +11,9 @@
 
 /* 96fx96f.gif downscaled to 70x70, 55 frames @ 40ms, embedded as a C array.
  * The lv_gif decoder parses the raw GIF bytes on the fly and animates via its
- * own internal timer (no widget-side timer needed). data_size is unused by the
- * gif decoder (it streams to the trailer), so it is left 0. */
-extern const unsigned char gif_data[];
+ * own internal timer (no widget-side timer needed). gif_data is declared with
+ * its exact size so sizeof() is a constant expression for the static dsc. */
+extern const unsigned char gif_data[47610];
 
 #define GIF_W 70
 #define GIF_H 70
@@ -37,7 +37,7 @@ extern const unsigned char gif_data[];
 static const lv_image_dsc_t gif_img_dsc = {
     .header = {.magic = LV_IMAGE_HEADER_MAGIC},
     .data = gif_data,
-    .data_size = 0,
+    .data_size = sizeof(gif_data),
 };
 
 int zmk_widget_gif_status_init(struct zmk_widget_gif_status *widget, lv_obj_t *parent)
