@@ -47,7 +47,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_W      320
 #define BATTERY_SCREEN_H      240
 #define BATTERY_BAR_H         128
-#define BATTERY_TAG_Y         214
+#define BATTERY_TAG_Y         210
 #define BATTERY_SLOT0_BAR_X   17
 #define BATTERY_SLOT1_BAR_X   277
 #define BATTERY_SLOT0_CENTER_X 30
@@ -56,7 +56,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_W      240
 #define BATTERY_SCREEN_H      320
 #define BATTERY_BAR_H         188
-#define BATTERY_TAG_Y         292
+#define BATTERY_TAG_Y         270
 #define BATTERY_SLOT0_BAR_X   20
 #define BATTERY_SLOT1_BAR_X   194
 #define BATTERY_SLOT0_CENTER_X 33
@@ -341,12 +341,16 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
                      BATTERY_ICON_Y);
         lv_label_set_text_static(icon, "--");
 
-        /* Slot designator tag ("L" / "R"). Uses Mono_12 (JetBrainsMono) per the
-         * 3-size rule (Mono_20 / Mono_12 / NerdFonts_20 icons), matching the
-         * lvgl-preview. It fits the tag row without clipping at either panel
-         * size. */
+        /* Slot designator tag ("L" / "R"). Portrait uses Mono_20 (matches the
+         * percent text size; tag sits 4px below the bar bottom at y=270).
+         * Landscape stays Mono_12 at y=210 — Mono_20 would clip the 240px
+         * panel (210 + ~30 line height = 240 exactly at the edge). */
         lv_obj_t *tag = lv_label_create(widget->obj);
+#if CONFIG_DONGLE_SCREEN_HORIZONTAL
         lv_obj_set_style_text_font(tag, &Mono_12, 0);
+#else
+        lv_obj_set_style_text_font(tag, &Mono_20, 0);
+#endif
         lv_obj_set_style_text_color(tag, lv_color_hex(0x9a9aa5), 0);
         lv_obj_align(tag, LV_ALIGN_TOP_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
                      BATTERY_TAG_Y);

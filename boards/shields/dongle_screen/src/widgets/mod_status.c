@@ -49,7 +49,7 @@ static const lv_point_t mod_key_pos[4] = {
 #define MOD_ICON_ALT   "\U000F0635" /* nf-md-apple_keyboard_option  U+F0635 */
 #define MOD_ICON_GUI   "\U000F0633" /* nf-md-apple_keyboard_command U+F0633 */
 
-static void set_mod_key_active(lv_obj_t *key, bool active)
+static void set_mod_key_active(lv_obj_t *key, lv_obj_t *icon, bool active)
 {
     lv_obj_set_style_bg_color(key, lv_color_hex(active ? MOD_BG_ACTIVE : MOD_BG_IDLE), LV_PART_MAIN);
     lv_obj_set_style_border_color(key,
@@ -57,9 +57,12 @@ static void set_mod_key_active(lv_obj_t *key, bool active)
                                   LV_PART_MAIN);
     lv_obj_set_style_text_color(key, lv_color_hex(active ? MOD_TEXT_ACTIVE : MOD_TEXT_IDLE),
                                 LV_PART_MAIN);
+    lv_obj_set_style_text_color(icon, lv_color_hex(active ? MOD_TEXT_ACTIVE : MOD_TEXT_IDLE),
+                                LV_PART_MAIN);
 }
 
-static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const char *icon)
+static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const char *icon,
+                                lv_obj_t **icon_out)
 {
     lv_obj_t *key = lv_obj_create(parent);
     lv_obj_set_pos(key, pos->x, pos->y);
@@ -69,11 +72,9 @@ static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const c
     lv_obj_set_style_pad_left(key, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_right(key, 0, LV_PART_MAIN);
     lv_obj_remove_flag(key, LV_OBJ_FLAG_SCROLLABLE);
-    set_mod_key_active(key, false);
 
     lv_obj_t *mk_icon = lv_label_create(key);
     lv_label_set_text(mk_icon, icon);
-    lv_obj_set_style_text_color(mk_icon, lv_color_hex(0x9a9aa5), LV_PART_MAIN);
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
     /* Landscape: 25px keys — keep the 20px icon, centered. */
     lv_obj_set_style_text_font(mk_icon, &NerdFonts_Regular_20, LV_PART_MAIN);
@@ -82,6 +83,12 @@ static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const c
     lv_obj_set_style_text_font(mk_icon, &NerdFonts_Regular_40, LV_PART_MAIN);
 #endif
     lv_obj_align(mk_icon, LV_ALIGN_CENTER, 0, 0);
+    if (icon_out != NULL)
+    {
+        *icon_out = mk_icon;
+    }
+
+    set_mod_key_active(key, mk_icon, false);
 
     return key;
 }
@@ -90,19 +97,17 @@ static void update_mod_status(struct zmk_widget_mod_status *widget)
 {
     uint8_t mods = zmk_hid_get_keyboard_report()->body.modifiers;
 
-    set_mod_key_active(widget->shift, mods & (MOD_LSFT | MOD_RSFT));
-    set_mod_key_active(widget->ctrl, mods & (MOD_LCTL | MOD_RCTL));
-    set_mod_key_active(widget->alt, mods & (MOD_LALT | MOD_RALT));
-    set_mod_key_active(widget->gui, mods & (MOD_LGUI | MOD_RGUI));
+    set_mod_key_active(widget->shift, widget->shift_icon, mods & (MOD_LSFT | MOD_RSFT));
+    set_mod_key_active(widget->ctrl, widget->ctrl_icon, mods & (MOD_LCTL | MOD_RCTL));
+    set_mod_key_active(widget->alt, widget->alt_icon, mods & (MOD_LALT | MOD_RALT));
+    set_mod_key_active(widget->gui, widget->gui_icon, mods & (MOD_LGUI | MOD_RGUI));
 }
 
-static void mod_status_timer_cb(struct k_timer *timer)
+static void mod_status_timer_cb(lv_timer_t *timer)
 {
-    struct zmk_widget_mod_status *widget = k_timer_user_data_get(timer);
+    struct zmk_widget_mod_status *widget = lv_timer_get_user_data(timer);
     update_mod_status(widget);
 }
-
-static struct k_timer mod_status_timer;
 
 int zmk_widget_mod_status_init(struct zmk_widget_mod_status *widget, lv_obj_t *parent)
 {
@@ -114,14 +119,14 @@ int zmk_widget_mod_status_init(struct zmk_widget_mod_status *widget, lv_obj_t *p
     lv_obj_set_style_pad_right(widget->obj, 0, LV_PART_MAIN);
     lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
 
-    widget->shift = mod_key_create(widget->obj, &mod_key_pos[0], MOD_ICON_SHIFT);
-    widget->ctrl = mod_key_create(widget->obj, &mod_key_pos[1], MOD_ICON_CTRL);
-    widget->alt = mod_key_create(widget->obj, &mod_key_pos[2], MOD_ICON_ALT);
-    widget->gui = mod_key_create(widget->obj, &mod_key_pos[3], MOD_ICON_GUI);
+    widget->shift = mod_key_create(widget->obj, &mod_key_pos[0], MOD_ICON_SHIFT, &widget->shift_icon);
+    widget->ctrl = mod_key_create(widget->obj, &mod_key_pos[1], MOD_ICON_CTRL, &widget->ctrl_icon);
+    widget->alt = mod_key_create(widget->obj, &mod_key_pos[2], MOD_ICON_ALT, &widget->alt_icon);
+    widget->gui = mod_key_create(widget->obj, &mod_key_pos[3], MOD_ICON_GUI, &widget->gui_icon);
 
-    k_timer_init(&mod_status_timer, mod_status_timer_cb, NULL);
-    k_timer_user_data_set(&mod_status_timer, widget);
-    k_timer_start(&mod_status_timer, K_MSEC(100), K_MSEC(100));
+    /* LVGL timer runs inside lv_timer_handler() on the display thread — unlike a
+     * Zephyr k_timer (system workqueue), it is thread-safe with LVGL styles. */
+    lv_timer_create(mod_status_timer_cb, 100, widget);
 
     return 0;
 }
