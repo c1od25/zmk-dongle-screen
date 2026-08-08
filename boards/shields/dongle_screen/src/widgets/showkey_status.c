@@ -26,15 +26,15 @@ struct showkey_status_state
     uint32_t keycode;
 };
 
-/* HID usage (keyboard page 0x07) → concise display name. Names are ≤6 chars so
- * the longest fit the show cell at Mono_20 (~9 chars @ 12px in 108px). */
+/* HID usage (keyboard page 0x07) → concise display name. Mono_36 advance
+ * 0.6em = 21.6px/char → 5 chars fit the 108px portrait cell; all names ≤5. */
 static const struct key_name
 {
     uint8_t usage;
     const char *name;
 } key_names[] = {
     {0x28, "ENT"},    {0x29, "ESC"},   {0x2A, "BSPC"},  {0x2B, "TAB"},
-    {0x2C, "SPC"},    {0x2D, "-"},     {0x2E, "="},     {0x2F, "["},
+    {0x2C, "SPC"},    {0x2D, "MINUS"}, {0x2E, "="},     {0x2F, "["},
     {0x30, "]"},      {0x31, "\\"},    {0x33, ";"},     {0x34, "'"},
     {0x35, "`"},      {0x36, ","},     {0x37, "."},     {0x38, "/"},
     {0x39, "CAPS"},   {0x46, "PRTSC"}, {0x47, "SCRLK"}, {0x48, "PAUSE"},
@@ -112,7 +112,7 @@ static void showkey_status_update_cb(struct showkey_status_state state)
         }
         else
         {
-            lv_label_set_text_static(widget->label, "-");
+            lv_label_set_text_static(widget->label, "");
             lv_obj_set_style_text_color(widget->label, lv_color_hex(0xececef), LV_PART_MAIN);
         }
     }
@@ -135,11 +135,12 @@ int zmk_widget_showkey_status_init(struct zmk_widget_showkey_status *widget, lv_
     lv_obj_set_pos(widget->obj, 66, 138);
 #endif
 
-    /* Mono_20 (full ASCII) — NerdFonts_20 has only PUA icons, no letters. */
+    /* Mono_36 (full ASCII) — two size steps up from Mono_20; NerdFonts_20 has
+     * only PUA icons, no letters. Empty text until a key is pressed. */
     widget->label = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->label, &Mono_20, LV_PART_MAIN);
+    lv_obj_set_style_text_font(widget->label, &Mono_36, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->label, lv_color_hex(0xececef), LV_PART_MAIN);
-    lv_label_set_text_static(widget->label, "-");
+    lv_label_set_text_static(widget->label, "");
     lv_obj_align(widget->label, LV_ALIGN_CENTER, 0, 0);
 
     sys_slist_append(&widgets, &widget->node);
