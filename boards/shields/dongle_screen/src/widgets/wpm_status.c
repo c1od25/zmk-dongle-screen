@@ -78,26 +78,28 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
 #endif
 
     /*
-     * WPM value — bottom-anchored, fg-hi (#ececef), Mono_28 (bpp2).
-     * Speedometer icon (U+F04C5, NerdFonts_Regular_28) sits to the LEFT of the
-     * value with an 8px gap, vertically mid-aligned — no text suffix, so no
-     * clipping in the 108px cell. Width: icon@28 ~17px + 8 gap + "110"@28
-     * ~50px = ~75px ≤ 108px. Icons: NerdFonts 20/40/28; mono: 28/20/12.
+     * WPM group (speedo icon + 14px gap + value), bottom-aligned in the cell.
+     * The speedometer icon (U+F04C5, NerdFonts_Speedo_40 — same 40px as the mod
+     * icons) sits LEFT of the value. OUT_LEFT_MID resolves against the value
+     * label's actual left edge, and that label's width already covers all 3
+     * digits ("110" @ Mono_28 ~50px), so a 14px gap can never be overlapped.
+     * Value is right-shifted 12px so the 3-digit group centers in the 108px
+     * cell (group ~88px, margins 3/17).
      */
     widget->wpm_value = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->wpm_value, &Mono_28, 0);
     lv_obj_set_style_text_color(widget->wpm_value, lv_color_hex(0xECECEF), 0);
-    lv_obj_align(widget->wpm_value, LV_ALIGN_BOTTOM_MID, 0, -3);
+    lv_obj_align(widget->wpm_value, LV_ALIGN_BOTTOM_MID, 12, -3);
     lv_label_set_text_static(widget->wpm_value, "0");
 
     widget->wpm_icon = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->wpm_icon, &NerdFonts_Regular_28, 0);
+    lv_obj_set_style_text_font(widget->wpm_icon, &NerdFonts_Speedo_40, 0);
     lv_obj_set_style_text_color(widget->wpm_icon, lv_color_hex(0x9a9aa5), 0);
     lv_obj_set_style_pad_all(widget->wpm_icon, 0, LV_PART_MAIN);
     /* U+F04C5 is above the BMP — needs the 8-digit \U0000XXXX escape, not
      * \uXXXX (a 4-digit \u escape would render a missing-glyph tofu box). */
     lv_label_set_text_static(widget->wpm_icon, "\U000F04C5");
-    lv_obj_align_to(widget->wpm_icon, widget->wpm_value, LV_ALIGN_OUT_LEFT_MID, -8, 0);
+    lv_obj_align_to(widget->wpm_icon, widget->wpm_value, LV_ALIGN_OUT_LEFT_MID, -14, 0);
 
     sys_slist_append(&widgets, &widget->node);
 
