@@ -46,6 +46,11 @@ static struct zmk_widget_mod_status mod_widget;
 static struct zmk_widget_showkey_status showkey_status_widget;
 #endif
 
+#if CONFIG_DONGLE_SCREEN_SLEEP_ACTIVE
+#include "sleep_status.h"
+static struct zmk_widget_sleep_status sleep_status_widget;
+#endif
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -112,6 +117,15 @@ lv_obj_t *zmk_display_status_screen()
 #if CONFIG_DONGLE_SCREEN_OUTPUT_ACTIVE
     zmk_widget_output_status_init(&output_status_widget, screen);
     lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), LV_ALIGN_TOP_MID, 0, 10);
+#endif
+
+#if CONFIG_DONGLE_SCREEN_SLEEP_ACTIVE
+    zmk_widget_sleep_status_init(&sleep_status_widget, screen);
+#if CONFIG_DONGLE_SCREEN_HORIZONTAL
+    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 272, 10);
+#else
+    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 192, 10);
+#endif
 #endif
 
 #if CONFIG_DONGLE_SCREEN_LAYER_ACTIVE

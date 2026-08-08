@@ -193,6 +193,13 @@ config DONGLE_SCREEN_SHOWKEY_ACTIVE
     help
       If the showkey widget should be active or not
 
+config DONGLE_SCREEN_SLEEP_ACTIVE
+    bool "Sleep status widget active"
+    default y
+    help
+      If the sleep status (moon) widget should be active or not. Shows a
+      moon icon in the top bar when both peripheral halves are asleep.
+
 config DONGLE_SCREEN_MEM_DEBUG
     bool "Log LVGL heap usage periodically"
     default n
