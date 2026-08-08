@@ -368,12 +368,12 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
                      BATTERY_ICON_Y);
         lv_label_set_text_static(icon, "--");
 
-        /* Slot designator tag ("L" / "R"), 8px unscii — the design calls for a
-         * 10px tag, which no compiled font provides; unscii_8 is the closest and
-         * is already selected in Kconfig (LV_FONT_UNSCII_8). It also fits the
-         * tag row without clipping at either panel size. */
+        /* Slot designator tag ("L" / "R"). Uses Mono_12 (JetBrainsMono) per the
+         * 3-size rule (Mono_20 / Mono_12 / NerdFonts_20 icons), matching the
+         * lvgl-preview. It fits the tag row without clipping at either panel
+         * size. */
         lv_obj_t *tag = lv_label_create(widget->obj);
-        lv_obj_set_style_text_font(tag, &lv_font_unscii_8, 0);
+        lv_obj_set_style_text_font(tag, &Mono_12, 0);
         lv_obj_set_style_text_color(tag, lv_color_hex(0x9a9aa5), 0);
         lv_obj_align(tag, LV_ALIGN_TOP_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
                      BATTERY_TAG_Y);
