@@ -19,11 +19,14 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
-/* Sleep moon nf-md-brightness_3 (U+F00DC). Verified UTF-8: F3 B0 83 9C. */
-#define SLEEP_MOON "\U000F00DC"
+/* Sleep moon nf-md-brightness_2 (U+F00DB). UTF-8: F3 B0 83 9B.
+ * 12x17 @ ofs_y=-1 — box metrics match the BT icon (U+F293) exactly, so the
+ * two top-bar icons render at the same size. */
+#define SLEEP_MOON "\U000F00DB"
 
-/* Moon colors: gray = awake (any half connected), red = both halves asleep. */
-#define SLEEP_GRAY 0x9e9e9e
+/* Moon colors: gray = awake (any half connected), red = both halves asleep.
+ * Gray matches COLOR_FG_MID (0x9a9aa5) used by the BT/USB icons. */
+#define SLEEP_GRAY 0x9a9aa5
 #define SLEEP_RED 0xef4d43
 
 /* 0xFF = unknown (never connected). Treated as awake so the icon starts GRAY
