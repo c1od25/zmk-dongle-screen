@@ -53,6 +53,9 @@ static bool theme_compute_asleep(void)
 
 static void theme_fade_exec_cb(void *var, int32_t v)
 {
+    /* lv_color_mix: mix==0 → c2 (cyan), mix==255 → c1 (red).
+     * The animation value v therefore goes 255→0 for a fade to cyan and
+     * 0→255 for a fade back to red (see theme_start_fade). */
     accent = lv_color_mix(THEME_ACCENT_RED, THEME_ACCENT_CYAN, (uint8_t)v);
     theme_fire_refresh();
 }
@@ -64,7 +67,7 @@ static void theme_start_fade(bool to_cyan)
     lv_anim_init(&a);
     lv_anim_set_var(&a, &fade_var);
     lv_anim_set_exec_cb(&a, theme_fade_exec_cb);
-    lv_anim_set_values(&a, to_cyan ? 0 : 255, to_cyan ? 255 : 0);
+    lv_anim_set_values(&a, to_cyan ? 255 : 0, to_cyan ? 0 : 255);
     lv_anim_set_duration(&a, THEME_FADE_MS);
     lv_anim_start(&a);
 }

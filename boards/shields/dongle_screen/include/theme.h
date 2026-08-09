@@ -21,7 +21,7 @@
  */
 
 #define THEME_ACCENT_RED  ((lv_color_t)LV_COLOR_MAKE(0xef, 0x4d, 0x43))
-#define THEME_ACCENT_CYAN ((lv_color_t)LV_COLOR_MAKE(0x45, 0xb8, 0xc6))
+#define THEME_ACCENT_CYAN ((lv_color_t)LV_COLOR_MAKE(0x30, 0xc6, 0xd9))
 #define THEME_FADE_MS     2000
 
 typedef void (*accent_refresh_cb_t)(void);
