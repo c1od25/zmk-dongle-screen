@@ -65,7 +65,7 @@ static lv_color_t mix_toward_bg(uint8_t r, uint8_t g, uint8_t b, float alpha)
 static void scanner_recompute_colors(void)
 {
     lv_color_t accent = theme_accent_color();
-    uint32_t rgb = lv_color_to32(accent);
+    uint32_t rgb = lv_color_to_32(accent);
     uint8_t r = (rgb >> 16) & 0xFF;
     uint8_t g = (rgb >> 8) & 0xFF;
     uint8_t b = rgb & 0xFF;
