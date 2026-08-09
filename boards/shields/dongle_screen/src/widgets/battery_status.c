@@ -128,7 +128,7 @@ static void battery_anim_exec_cb(void *var, int32_t v)
 
 static void battery_debounce_cb(lv_timer_t *timer)
 {
-    uint8_t source = (uint8_t)(uintptr_t)timer->user_data;
+    uint8_t source = (timer == debounce_timer[0]) ? 0 : 1;
     debounce_timer[source] = NULL;
 
     int32_t target = pending_level[source];
@@ -265,7 +265,7 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
         if (debounce_timer[state.source] == NULL)
         {
             debounce_timer[state.source] = lv_timer_create(
-                battery_debounce_cb, DEBOUNCE_MS, (void *)(uintptr_t)state.source);
+                battery_debounce_cb, DEBOUNCE_MS, NULL);
         }
         return;
     }
