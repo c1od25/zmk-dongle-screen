@@ -32,6 +32,13 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SLOT_COUNT (ZMK_SPLIT_CENTRAL_PERIPHERAL_COUNT + SOURCE_OFFSET)
 
 /*
+ * Animation duration for bar value and text transitions (ms).
+ * Shorter than theme.c's THEME_FADE_MS=2000 so SOC updates feel responsive.
+ * Uses the same lv_anim pattern as theme_start_fade for consistency.
+ */
+#define BATTERY_ANIM_MS 800
+
+/*
  * Battery slots are connection-order based, not physical-side based:
  * slot 0 is the first-paired peripheral and slot 1 the second. The dongle has
  * no way to know which half is physically left or right, so the tags render the
@@ -95,6 +102,37 @@ struct battery_object
  * ZMK sends battery events with level < 1 when peripherals disconnect
  */
 static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
+
+/* Per-slot animated value: lv_anim writes into this; the exec callback pushes
+ * the interpolated value into the LVGL bar and percentage label in sync. */
+static int32_t anim_displayed_level[BATTERY_SLOT_COUNT];
+
+static void battery_anim_exec_cb(void *var, int32_t v)
+{
+    uint8_t source = (var == &anim_displayed_level[0]) ? 0 : 1;
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->bar == NULL) return;
+
+    int32_t clamped = v < 0 ? 0 : (v > 100 ? 100 : v);
+    lv_bar_set_value(slot->bar, clamped, LV_ANIM_OFF);
+    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)clamped);
+    lv_label_set_text_static(slot->icon, slot->text);
+}
+
+static void battery_anim_completed_cb(lv_anim_t *a)
+{
+    void *var = lv_anim_get_var(a);
+    uint8_t source = (var == &anim_displayed_level[0]) ? 0 : 1;
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->tag == NULL) return;
+
+    if (anim_displayed_level[source] == 0) {
+        lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
+        lv_label_set_text_static(slot->tag, "X");
+        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
+        lv_label_set_text_static(slot->icon, "0%");
+    }
+}
 
 /* Bar styles (design doc §4): track on LV_PART_MAIN, tier on LV_PART_INDICATOR. */
 static lv_style_t style_bar_track;
@@ -188,13 +226,10 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
         return;
     }
 
-    // Check for reconnection using the existing battery level mechanism
     bool reconnecting = is_peripheral_reconnecting(state.source, state.level);
 
-    // Update our tracking
     last_battery_levels[state.source] = state.level;
 
-    // Wake screen on reconnection
     if (reconnecting)
     {
 #if CONFIG_DONGLE_SCREEN_IDLE_TIMEOUT_S > 0
@@ -207,23 +242,13 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 #endif
     }
 
-    if (state.level < 1)
-    {
-        /* Disconnected: empty bar, red "X" tag (design §1). */
-        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
-        set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
-        lv_label_set_text_static(slot->icon, "0%");
-        lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
-        lv_label_set_text_static(slot->tag, "X");
-        return;
-    }
-
     LOG_DBG("source: %d, level: %d, usb: %d", state.source, state.level, state.usb_present);
 
-    /* Bar fill (no animation on updates) + tier: <30 lo (red), else hi. */
-    lv_bar_set_value(slot->bar, state.level, LV_ANIM_OFF);
-    if (state.level < 30)
+    int32_t target = (state.level < 1) ? 0 : state.level;
+    int32_t start = anim_displayed_level[state.source];
+
+    /* Tier and colors switch instantly so the bar accent matches the target from frame 1. */
+    if (state.level < 1 || state.level < 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
         lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
@@ -234,13 +259,31 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
         lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
     }
 
-    /* Icon: "NN%" percent text, color per tier (design §1 table). */
-    snprintf(slot->text, sizeof(slot->text), "%u%%", state.level);
-    lv_label_set_text_static(slot->icon, slot->text);
+    if (reconnecting)
+    {
+        lv_label_set_text_static(slot->tag, state.source == 0 ? "L" : "R");
+        lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
+    }
 
-    /* Tag: restore the slot designator after a disconnect "X". */
-    lv_label_set_text_static(slot->tag, state.source == 0 ? "L" : "R");
-    lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
+    /* Cancel any in-flight animation on this slot before starting a new one;
+     * lv_anim_delete does not fire the completed_cb, so tag state is managed
+     * explicitly above (reconnect → L/R) or below (sleep drain → X on completion). */
+    lv_anim_delete(&anim_displayed_level[state.source], NULL);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, &anim_displayed_level[state.source]);
+    lv_anim_set_exec_cb(&a, battery_anim_exec_cb);
+    lv_anim_set_duration(&a, BATTERY_ANIM_MS);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+    lv_anim_set_values(&a, start, target);
+
+    if (state.level < 1)
+    {
+        lv_anim_set_completed_cb(&a, battery_anim_completed_cb);
+    }
+
+    lv_anim_start(&a);
 }
 
 void battery_status_update_cb(struct battery_state state)
