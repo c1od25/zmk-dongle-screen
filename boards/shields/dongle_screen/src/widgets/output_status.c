@@ -64,10 +64,6 @@ static void set_status_symbol(struct zmk_widget_output_status *widget, struct ou
     if (state.active_profile_connected == 1)
     {
         lv_obj_set_style_text_color(widget->bt_label, COLOR_RED, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(widget->bt_dot, COLOR_RED, LV_PART_MAIN);
-        lv_obj_set_style_shadow_color(widget->bt_dot, COLOR_RED, LV_PART_MAIN);
-        lv_obj_set_style_shadow_width(widget->bt_dot, 6, LV_PART_MAIN);
-        lv_obj_set_style_shadow_opa(widget->bt_dot, LV_OPA_50, LV_PART_MAIN);
     }
     else
     {
@@ -79,8 +75,6 @@ static void set_status_symbol(struct zmk_widget_output_status *widget, struct ou
         {
             lv_obj_set_style_text_color(widget->bt_label, COLOR_FG_FAINT, LV_PART_MAIN);
         }
-        lv_obj_set_style_bg_color(widget->bt_dot, COLOR_FG_FAINT, LV_PART_MAIN);
-        lv_obj_set_style_shadow_width(widget->bt_dot, 0, LV_PART_MAIN);
     }
 }
 
@@ -117,21 +111,14 @@ int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_ob
 
     widget->usb_label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->usb_label, &NerdFonts_Regular_20, LV_PART_MAIN);
-    lv_label_set_text_static(widget->usb_label, "\U000F0553"); /* U+F0553 */
+    lv_label_set_text_static(widget->usb_label, "\U000F11F0"); /* U+F11F0 nf-md-usb_port */
     lv_obj_set_style_text_align(widget->usb_label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     lv_obj_align(widget->usb_label, LV_ALIGN_TOP_LEFT, 12, 1);
 
     widget->bt_label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->bt_label, &NerdFonts_Regular_20, LV_PART_MAIN);
-    lv_label_set_text_static(widget->bt_label, "\uF293"); /* U+F293 */
+    lv_label_set_text_static(widget->bt_label, "\uF293"); /* U+F293 nf-fa-bluetooth */
     lv_obj_align(widget->bt_label, LV_ALIGN_TOP_RIGHT, -12, 1);
-
-    widget->bt_dot = lv_obj_create(widget->obj);
-    lv_obj_set_size(widget->bt_dot, 5, 5);
-    lv_obj_set_style_radius(widget->bt_dot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(widget->bt_dot, COLOR_FG_FAINT, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(widget->bt_dot, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_align_to(widget->bt_dot, widget->bt_label, LV_ALIGN_OUT_LEFT_MID, -5, 0);
 
     sys_slist_append(&widgets, &widget->node);
 

@@ -15,7 +15,6 @@ struct zmk_widget_output_status
     lv_obj_t *obj;
     lv_obj_t *usb_label;
     lv_obj_t *bt_label;
-    lv_obj_t *bt_dot;
     sys_snode_t node;
 };
 

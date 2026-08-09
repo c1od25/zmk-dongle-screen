@@ -19,12 +19,12 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
-/* Work/sleep icons (NerdFonts_Regular_28 — both glyphs render 17x17 @28px, so
- * they match the visual height of the BT/USB icons in the top bar):
- *   nf-md-wifi (U+F0A3B). UTF-8: F3 B0 A8 BB
+/* Work/sleep icons (NerdFonts_Regular_28 — both glyphs render 17px wide @28px,
+ * so they match the visual height of the BT/USB icons in the top bar):
+ *   nf-md-wifi (U+F05A9). UTF-8: F3 B0 96 A9
  *   nf-md-leaf (U+F032A). UTF-8: F3 B0 8C AA
  */
-#define SLEEP_WIFI "\U000F0A3B"
+#define SLEEP_WIFI "\U000F05A9"
 #define SLEEP_LEAF "\U000F032A"
 
 /* Icon colors — same palette as output_status.c:
