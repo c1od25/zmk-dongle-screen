@@ -4,11 +4,7 @@
  * Opts: --bpp 4 --size 28 --no-compress --use-color-info --font JetBrainsMonoNLNerdFontMono-Regular.ttf --symbols=󰨻󰌪 --format lvgl -o NerdFonts_Regular_28.c
  ******************************************************************************/
 
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
-#else
-#include "lvgl/lvgl.h"
-#endif
 
 #ifndef NERDFONTS_REGULAR_28
 #define NERDFONTS_REGULAR_28 1
