@@ -16,6 +16,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include "sleep_status.h"
 #include <fonts.h>
+#include <theme.h>
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -27,10 +28,7 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define SLEEP_WIFI "\U000F05A9"
 #define SLEEP_LEAF "\U000F032A"
 
-/* Icon color — same red as output_status.c (COLOR_RED 0xef4d43). */
-#define SLEEP_RED 0xef4d43
-
-/* 0xFF = unknown (never connected). */
+/* Icon color follows the theme accent (red awake, cyan-blue asleep). */
 #define SLEEP_LEVEL_UNKNOWN 0xFF
 
 enum sleep_mode
@@ -57,13 +55,22 @@ static void set_sleep_symbol(struct zmk_widget_sleep_status *widget, struct slee
     {
         lv_label_set_text_static(widget->label, SLEEP_LEAF);
     }
-    lv_obj_set_style_text_color(widget->label, lv_color_hex(SLEEP_RED), LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
 }
 
 static void sleep_status_update_cb(struct sleep_status_state state)
 {
     struct zmk_widget_sleep_status *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_sleep_symbol(widget, state); }
+}
+
+static void sleep_status_refresh(void)
+{
+    struct zmk_widget_sleep_status *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
+    {
+        lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
+    }
 }
 
 static enum sleep_mode sleep_status_compute_mode(void)
@@ -141,10 +148,12 @@ int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_
     widget->label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->label, &NerdFonts_Regular_28, LV_PART_MAIN);
     lv_label_set_text_static(widget->label, SLEEP_WIFI);
-    lv_obj_set_style_text_color(widget->label, lv_color_hex(SLEEP_RED), LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
     lv_obj_align(widget->label, LV_ALIGN_TOP_LEFT, 0, 2);
 
     sys_slist_append(&widgets, &widget->node);
+
+    theme_register_refresh(sleep_status_refresh);
 
     /* Poll the central's cached peripheral battery levels every second so a
      * dropped disconnect event can't leave the sleep state stale. LVGL timers

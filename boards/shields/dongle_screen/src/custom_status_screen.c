@@ -5,6 +5,7 @@
  */
 
 #include "custom_status_screen.h"
+#include <theme.h>
 
 #if CONFIG_DONGLE_SCREEN_OUTPUT_ACTIVE
 #include "widgets/output_status.h"
@@ -95,6 +96,8 @@ static void mem_debug_timer_cb(lv_timer_t *timer)
 lv_obj_t *zmk_display_status_screen()
 {
     lv_obj_t *screen;
+
+    theme_init();
 
     screen = lv_obj_create(NULL);
     /* Root background: bg0 #0a0a0d, fully opaque, no padding (design §4

@@ -17,6 +17,7 @@
 
 #include "showkey_status.h"
 #include <fonts.h>
+#include <theme.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -304,8 +305,8 @@ static void showkey_status_update_cb(struct showkey_status_state state)
             struct showkey_lookup r =
                 lookup_showkey(state.usage_page, state.keycode, shifted);
             showkey_apply(widget, &r);
-            lv_obj_set_style_text_color(widget->label, lv_color_hex(0xef4d43), LV_PART_MAIN);
-            lv_obj_set_style_text_color(widget->icon_label, lv_color_hex(0xef4d43), LV_PART_MAIN);
+            lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
+            lv_obj_set_style_text_color(widget->icon_label, theme_accent_color(), LV_PART_MAIN);
         }
         else
         {
@@ -322,6 +323,20 @@ static void showkey_status_update_cb(struct showkey_status_state state)
             lv_anim_delete(widget, NULL);
             widget->hold_timer = lv_timer_create(showkey_hold_timeout, 800, widget);
             lv_timer_set_repeat_count(widget->hold_timer, 1);
+        }
+    }
+}
+
+static void showkey_status_refresh(void)
+{
+    struct zmk_widget_showkey_status *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
+    {
+        if (lv_label_get_text(widget->label)[0] != '\0' ||
+            lv_label_get_text(widget->icon_label)[0] != '\0')
+        {
+            lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
+            lv_obj_set_style_text_color(widget->icon_label, theme_accent_color(), LV_PART_MAIN);
         }
     }
 }
@@ -361,6 +376,8 @@ int zmk_widget_showkey_status_init(struct zmk_widget_showkey_status *widget, lv_
     lv_obj_align(widget->icon_label, LV_ALIGN_CENTER, 0, 0);
 
     sys_slist_append(&widgets, &widget->node);
+
+    theme_register_refresh(showkey_status_refresh);
 
     widget_showkey_status_init();
     return 0;

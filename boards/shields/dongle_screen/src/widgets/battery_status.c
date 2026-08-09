@@ -21,6 +21,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include "battery_status.h"
 #include "../brightness.h"
 #include <fonts.h>
+#include <theme.h>
 
 #if IS_ENABLED(CONFIG_ZMK_DONGLE_DISPLAY_DONGLE_BATTERY)
 #define SOURCE_OFFSET 1
@@ -121,7 +122,7 @@ static void init_bar_styles(void)
     lv_style_set_radius(&style_bar_hi, 3);
 
     lv_style_init(&style_bar_lo);
-    lv_style_set_bg_color(&style_bar_lo, lv_color_hex(0xef4d43));
+    lv_style_set_bg_color(&style_bar_lo, theme_accent_color());
     lv_style_set_bg_opa(&style_bar_lo, LV_OPA_COVER);
     lv_style_set_radius(&style_bar_lo, 3);
 }
@@ -211,9 +212,9 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
         /* Disconnected: empty bar, red "X" tag (design §1). */
         lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0xef4d43), 0);
+        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
         lv_label_set_text_static(slot->icon, "0%");
-        lv_obj_set_style_text_color(slot->tag, lv_color_hex(0xef4d43), 0);
+        lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
         lv_label_set_text_static(slot->tag, "X");
         return;
     }
@@ -225,7 +226,7 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
     if (state.level < 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0xef4d43), 0);
+        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
     }
     else
     {
@@ -246,6 +247,32 @@ void battery_status_update_cb(struct battery_state state)
 {
     struct zmk_widget_dongle_battery_status *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_battery_symbol(widget->obj, state); }
+}
+
+static void battery_status_refresh(void)
+{
+    lv_style_set_bg_color(&style_bar_lo, theme_accent_color());
+    lv_obj_report_style_change(&style_bar_lo);
+
+    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
+    {
+        struct battery_object *slot = &battery_objects[i];
+        if (slot->bar == NULL)
+        {
+            continue;
+        }
+
+        int8_t lvl = last_battery_levels[i];
+        if (lvl == 0)
+        {
+            lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
+            lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
+        }
+        else if (lvl > 0 && lvl < 30)
+        {
+            lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
+        }
+    }
 }
 
 static struct battery_state peripheral_battery_status_get_state(const zmk_event_t *eh)
@@ -366,6 +393,8 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
     }
 
     sys_slist_append(&widgets, &widget->node);
+
+    theme_register_refresh(battery_status_refresh);
 
     // Initialize peripheral tracking
     init_peripheral_tracking();

@@ -4,6 +4,7 @@
 #include <lvgl.h>
 #include "mod_status.h"
 #include <fonts.h>
+#include <theme.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -11,9 +12,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define MOD_BG_IDLE       0x121216
 #define MOD_BORDER_IDLE   0x2a2a34
 #define MOD_TEXT_IDLE     0x383842
-#define MOD_BG_ACTIVE     0x3a1410
-#define MOD_BORDER_ACTIVE 0xef4d43
-#define MOD_TEXT_ACTIVE   0xef4d43
 
 /* Mods cell geometry (design doc §2.5 portrait / §3.5 landscape). */
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
@@ -51,14 +49,21 @@ static const lv_point_t mod_key_pos[4] = {
 
 static void set_mod_key_active(lv_obj_t *key, lv_obj_t *icon, bool active)
 {
-    lv_obj_set_style_bg_color(key, lv_color_hex(active ? MOD_BG_ACTIVE : MOD_BG_IDLE), LV_PART_MAIN);
-    lv_obj_set_style_border_color(key,
-                                  lv_color_hex(active ? MOD_BORDER_ACTIVE : MOD_BORDER_IDLE),
+    if (active)
+    {
+        lv_obj_set_style_bg_color(key, lv_color_darken(theme_accent_color(), 190),
                                   LV_PART_MAIN);
-    lv_obj_set_style_text_color(key, lv_color_hex(active ? MOD_TEXT_ACTIVE : MOD_TEXT_IDLE),
-                                LV_PART_MAIN);
-    lv_obj_set_style_text_color(icon, lv_color_hex(active ? MOD_TEXT_ACTIVE : MOD_TEXT_IDLE),
-                                LV_PART_MAIN);
+        lv_obj_set_style_border_color(key, theme_accent_color(), LV_PART_MAIN);
+        lv_obj_set_style_text_color(key, theme_accent_color(), LV_PART_MAIN);
+        lv_obj_set_style_text_color(icon, theme_accent_color(), LV_PART_MAIN);
+    }
+    else
+    {
+        lv_obj_set_style_bg_color(key, lv_color_hex(MOD_BG_IDLE), LV_PART_MAIN);
+        lv_obj_set_style_border_color(key, lv_color_hex(MOD_BORDER_IDLE), LV_PART_MAIN);
+        lv_obj_set_style_text_color(key, lv_color_hex(MOD_TEXT_IDLE), LV_PART_MAIN);
+        lv_obj_set_style_text_color(icon, lv_color_hex(MOD_TEXT_IDLE), LV_PART_MAIN);
+    }
 }
 
 static lv_obj_t *mod_key_create(lv_obj_t *parent, const lv_point_t *pos, const char *icon,

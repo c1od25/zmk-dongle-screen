@@ -15,6 +15,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include "layer_status.h"
 #include <fonts.h>
+#include <theme.h>
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -42,10 +43,15 @@ static void layer_status_update_cb(struct layer_status_state state)
         lv_label_set_text_static(widget->layer_name, label);
 
         lv_obj_set_style_text_color(widget->layer_name,
-                                    state.index > 0 ? lv_color_hex(0xef4d43)
+                                    state.index > 0 ? theme_accent_color()
                                                     : lv_color_hex(0xececef),
                                     LV_PART_MAIN);
     }
+}
+
+static void layer_status_refresh(void)
+{
+    layer_status_update_cb(layer_status_get_state(NULL));
 }
 
 static struct layer_status_state layer_status_get_state(const zmk_event_t *eh)
@@ -88,6 +94,8 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
     lv_obj_align(widget->layer_name, LV_ALIGN_CENTER, 0, 0);
 
     sys_slist_append(&widgets, &widget->node);
+
+    theme_register_refresh(layer_status_refresh);
 
     widget_layer_status_init();
     return 0;

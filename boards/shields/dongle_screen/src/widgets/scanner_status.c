@@ -8,6 +8,7 @@
 #include <lvgl.h>
 
 #include "scanner_status.h"
+#include <theme.h>
 
 /* Block-character scanning loading animation (kr_4_12 rhythm scaled to 10
  * blocks). The head always advances (never stops at ends), a 6-level
@@ -45,9 +46,8 @@
 #define SCAN_BG_R 10
 #define SCAN_BG_G 10
 #define SCAN_BG_B 13
-#define SCAN_RED_R 0xef
-#define SCAN_RED_G 0x4d
-#define SCAN_RED_B 0x43
+
+static const float trail_alphas[6] = {1.0f, 0.9f, 0.65f, 0.42f, 0.28f, 0.18f};
 
 static lv_color_t trail_colors[6];
 static lv_color_t inactive_color;
@@ -60,6 +60,31 @@ static lv_color_t mix_toward_bg(uint8_t r, uint8_t g, uint8_t b, float alpha)
     uint8_t mg = (uint8_t)(SCAN_BG_G + (g - SCAN_BG_G) * alpha);
     uint8_t mb = (uint8_t)(SCAN_BG_B + (b - SCAN_BG_B) * alpha);
     return lv_color_make(mr, mg, mb);
+}
+
+static void scanner_recompute_colors(void)
+{
+    lv_color_t accent = theme_accent_color();
+    uint32_t rgb = lv_color_to32(accent);
+    uint8_t r = (rgb >> 16) & 0xFF;
+    uint8_t g = (rgb >> 8) & 0xFF;
+    uint8_t b = rgb & 0xFF;
+
+    for (int k = 0; k < 6; k++)
+    {
+        trail_colors[k] = mix_toward_bg(r, g, b, trail_alphas[k]);
+    }
+    inactive_color = mix_toward_bg(r, g, b, 0.6f);
+
+    for (int i = 0; i < SCANNER_BLOCK_N; i++)
+    {
+        last_state[i] = 0xFF; /* force repaint on next frame */
+    }
+}
+
+static void scanner_status_refresh(void)
+{
+    scanner_recompute_colors();
 }
 
 static void scan_timer_cb(lv_timer_t *t)
@@ -137,12 +162,8 @@ int zmk_widget_scanner_status_init(struct zmk_widget_scanner_status *widget, lv_
     lv_obj_set_pos(widget->obj, SCANNER_CELL_X, SCANNER_CELL_Y);
     lv_obj_set_size(widget->obj, SCANNER_CELL_W, SCANNER_CELL_H);
 
-    /* Precompute trail colors: mix(bg, red, alpha), alphas [1.0 0.9 0.65 0.42 0.28 0.18]. */
-    static const float alphas[6] = {1.0f, 0.9f, 0.65f, 0.42f, 0.28f, 0.18f};
-    for (int k = 0; k < 6; k++) {
-        trail_colors[k] = mix_toward_bg(SCAN_RED_R, SCAN_RED_G, SCAN_RED_B, alphas[k]);
-    }
-    inactive_color = mix_toward_bg(SCAN_RED_R, SCAN_RED_G, SCAN_RED_B, 0.6f);
+    /* Precompute trail colors from the current theme accent. */
+    scanner_recompute_colors();
 
     for (int i = 0; i < SCANNER_BLOCK_N; i++) {
         lv_obj_t *b = lv_obj_create(widget->obj);
@@ -157,6 +178,8 @@ int zmk_widget_scanner_status_init(struct zmk_widget_scanner_status *widget, lv_
         widget->blocks[i] = b;
         last_state[i] = 0xFF; /* force first update */
     }
+
+    theme_register_refresh(scanner_status_refresh);
 
     frame_idx = 0;
     lv_timer_create(scan_timer_cb, SCANNER_FRAME_MS, widget);
