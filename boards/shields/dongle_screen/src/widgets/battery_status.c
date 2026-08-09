@@ -96,6 +96,47 @@ struct battery_object
  */
 static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 
+/*
+ * Battery SOC filtering: EMA (exponential moving average) + step limiter.
+ * Fixed-point EMA with scale=256 avoids floating-point on this MCU.
+ * EMA_ALPHA_FP = 0.35 × 256 ≈ 90  →  ~3-sample equivalent smoothing.
+ * STEP_LIMIT = 10  →  max change per update $|$10%% to prevent wake jumps.
+ * On reconnect (sleep→wake), the raw level is used directly to avoid a
+ * multi-update ramp that would take minutes at the 120 s report interval.
+ */
+#define EMA_ALPHA_FP  90
+#define EMA_SCALE     256
+#define STEP_LIMIT    10
+
+static int32_t filtered_level[BATTERY_SLOT_COUNT]; /* fixed-point: real = val / EMA_SCALE */
+
+static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
+{
+    int32_t f = filtered_level[source];
+
+    if (reconnecting || raw < 1) {
+        /* First reading after sleep or disconnect: accept raw immediately. */
+        filtered_level[source] = (int32_t)raw * EMA_SCALE;
+        return raw;
+    }
+
+    int32_t raw_fp = (int32_t)raw * EMA_SCALE;
+
+    /* EMA: smoothed = (α × raw + (1-α) × prev) */
+    int32_t ema = (EMA_ALPHA_FP * raw_fp + (EMA_SCALE - EMA_ALPHA_FP) * f) / EMA_SCALE;
+
+    /* Step limiter: clamp change to ±STEP_LIMIT */
+    int32_t limit = STEP_LIMIT * EMA_SCALE;
+    if (ema > f + limit) {
+        ema = f + limit;
+    } else if (ema < f - limit) {
+        ema = f - limit;
+    }
+
+    filtered_level[source] = ema;
+    return (uint8_t)(ema / EMA_SCALE);
+}
+
 /* Bar styles (design doc §4): track on LV_PART_MAIN, tier on LV_PART_INDICATOR. */
 static lv_style_t style_bar_track;
 static lv_style_t style_bar_hi;
@@ -193,6 +234,8 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 
     // Update our tracking
     last_battery_levels[state.source] = state.level;
+
+    state.level = apply_filter(state.source, state.level, reconnecting);
 
     // Wake screen on reconnection
     if (reconnecting)
