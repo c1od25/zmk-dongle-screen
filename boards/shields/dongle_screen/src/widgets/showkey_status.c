@@ -12,6 +12,7 @@
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
 #include <dt-bindings/zmk/hid_usage_pages.h>
+#include <dt-bindings/zmk/modifiers.h>
 
 #include "showkey_status.h"
 #include <fonts.h>
@@ -25,6 +26,8 @@ struct showkey_status_state
     bool pressed;
     uint16_t usage_page;
     uint32_t keycode;
+    uint8_t implicit_modifiers;
+    uint8_t explicit_modifiers;
 };
 
 enum showkey_kind
@@ -96,10 +99,44 @@ static const struct key_name
     {0x63, "KP."},
 };
 
+/* Shift-aware plain/shifted char pairs for letters, digits and punctuation.
+ * Shift state comes from two sources: the implicit/explicit modifiers on the
+ * key event itself (LS() binds, caps-word, homerow mods) AND dedicated Shift
+ * key press events tracked via the shift_pressed flag. */
+struct shift_pair
+{
+    uint8_t usage;
+    char plain;
+    char shifted;
+};
+
+static const struct shift_pair shift_pairs[] = {
+    /* 0x04-0x1D: letters a-z / A-Z */
+    {0x04, 'a', 'A'}, {0x05, 'b', 'B'}, {0x06, 'c', 'C'}, {0x07, 'd', 'D'},
+    {0x08, 'e', 'E'}, {0x09, 'f', 'F'}, {0x0A, 'g', 'G'}, {0x0B, 'h', 'H'},
+    {0x0C, 'i', 'I'}, {0x0D, 'j', 'J'}, {0x0E, 'k', 'K'}, {0x0F, 'l', 'L'},
+    {0x10, 'm', 'M'}, {0x11, 'n', 'N'}, {0x12, 'o', 'O'}, {0x13, 'p', 'P'},
+    {0x14, 'q', 'Q'}, {0x15, 'r', 'R'}, {0x16, 's', 'S'}, {0x17, 't', 'T'},
+    {0x18, 'u', 'U'}, {0x19, 'v', 'V'}, {0x1A, 'w', 'W'}, {0x1B, 'x', 'X'},
+    {0x1C, 'y', 'Y'}, {0x1D, 'z', 'Z'},
+    /* 0x1E-0x27: digits 1-0 */
+    {0x1E, '1', '!'}, {0x1F, '2', '@'}, {0x20, '3', '#'}, {0x21, '4', '$'},
+    {0x22, '5', '%'}, {0x23, '6', '^'}, {0x24, '7', '&'}, {0x25, '8', '*'},
+    {0x26, '9', '('}, {0x27, '0', ')'},
+    /* 0x2D-0x38: punctuation (0x32 non-US #/~ intentionally omitted) */
+    {0x2D, '-', '_'}, {0x2E, '=', '+'}, {0x2F, '[', '{'}, {0x30, ']', '}'},
+    {0x31, '\\', '|'}, {0x33, ';', ':'}, {0x34, '\'', '"'}, {0x35, '`', '~'},
+    {0x36, ',', '<'}, {0x37, '.', '>'}, {0x38, '/', '?'},
+};
+
 /* Static text buffer — lv_label_set_text_static() does NOT copy. */
 static char showkey_buf[16];
 
-static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycode)
+/* Tracks whether a dedicated Shift key (usage 0xE1/0xE5) is currently held.
+ * Separate from the modifiers carried on the key event itself. */
+static bool shift_pressed;
+
+static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycode, bool shifted)
 {
     struct showkey_lookup r = {.kind = SHOWKEY_TEXT, .text = NULL};
     uint32_t u = keycode;
@@ -107,6 +144,17 @@ static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycod
     if (usage_page != HID_USAGE_KEY)
     {
         return r;
+    }
+
+    for (size_t i = 0; i < ARRAY_SIZE(shift_pairs); i++)
+    {
+        if (shift_pairs[i].usage == u)
+        {
+            showkey_buf[0] = shifted ? shift_pairs[i].shifted : shift_pairs[i].plain;
+            showkey_buf[1] = '\0';
+            r.text = showkey_buf;
+            return r;
+        }
     }
 
     for (size_t i = 0; i < ARRAY_SIZE(key_icons); i++)
@@ -120,20 +168,7 @@ static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycod
         }
     }
 
-    if (u >= 0x04 && u <= 0x1D) /* letters A-Z */
-    {
-        showkey_buf[0] = (char)('A' + (u - 0x04));
-        showkey_buf[1] = '\0';
-        r.text = showkey_buf;
-    }
-    else if (u >= 0x1E && u <= 0x27) /* digits 1-0 */
-    {
-        static const char digits[] = "1234567890";
-        showkey_buf[0] = digits[(u - 0x1E) % 10];
-        showkey_buf[1] = '\0';
-        r.text = showkey_buf;
-    }
-    else if (u >= 0x3A && u <= 0x45) /* F1-F12 */
+    if (u >= 0x3A && u <= 0x45) /* F1-F12 */
     {
         snprintf(showkey_buf, sizeof(showkey_buf), "F%u", (unsigned)(u - 0x3A + 1));
         r.text = showkey_buf;
@@ -160,6 +195,8 @@ static struct showkey_status_state get_state(const zmk_event_t *_eh)
         .pressed = ev && ev->state,
         .usage_page = ev ? ev->usage_page : 0,
         .keycode = ev ? ev->keycode : 0,
+        .implicit_modifiers = ev ? ev->implicit_modifiers : 0,
+        .explicit_modifiers = ev ? ev->explicit_modifiers : 0,
     };
 }
 
@@ -248,6 +285,18 @@ static void showkey_apply(struct zmk_widget_showkey_status *widget, struct showk
 
 static void showkey_status_update_cb(struct showkey_status_state state)
 {
+    /* Dedicated Shift keys (0xE1/0xE5) arrive as their own events — track
+     * their press/release state. The shift key itself still renders its icon. */
+    if (state.usage_page == HID_USAGE_KEY &&
+        (state.keycode == HID_USAGE_KEY_KEYBOARD_LEFTSHIFT ||
+         state.keycode == HID_USAGE_KEY_KEYBOARD_RIGHTSHIFT))
+    {
+        shift_pressed = state.pressed;
+    }
+
+    bool shifted = shift_pressed || (state.implicit_modifiers & (MOD_LSFT | MOD_RSFT)) ||
+                   (state.explicit_modifiers & (MOD_LSFT | MOD_RSFT));
+
     struct zmk_widget_showkey_status *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
     {
@@ -262,7 +311,8 @@ static void showkey_status_update_cb(struct showkey_status_state state)
             lv_obj_set_style_opa(widget->label, LV_OPA_COVER, LV_PART_MAIN);
             lv_obj_set_style_opa(widget->icon_label, LV_OPA_COVER, LV_PART_MAIN);
 
-            struct showkey_lookup r = lookup_showkey(state.usage_page, state.keycode);
+            struct showkey_lookup r =
+                lookup_showkey(state.usage_page, state.keycode, shifted);
             showkey_apply(widget, &r);
             lv_obj_set_style_text_color(widget->label, lv_color_hex(0xef4d43), LV_PART_MAIN);
             lv_obj_set_style_text_color(widget->icon_label, lv_color_hex(0xef4d43), LV_PART_MAIN);
