@@ -107,6 +107,13 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
  * the interpolated value into the LVGL bar and percentage label in sync. */
 static int32_t anim_displayed_level[BATTERY_SLOT_COUNT];
 
+/* Reconnect debounce: save the latest level received during the debounce window
+ * and apply only the final value after the timer fires. Stops duplicate GATT
+ * events from causing overlapping / restarted animations on wake. */
+static int32_t pending_level[BATTERY_SLOT_COUNT];
+static lv_timer_t *debounce_timer[BATTERY_SLOT_COUNT];
+#define DEBOUNCE_MS 600
+
 static void battery_anim_exec_cb(void *var, int32_t v)
 {
     uint8_t source = (var == &anim_displayed_level[0]) ? 0 : 1;
@@ -117,6 +124,29 @@ static void battery_anim_exec_cb(void *var, int32_t v)
     lv_bar_set_value(slot->bar, clamped, LV_ANIM_OFF);
     snprintf(slot->text, sizeof(slot->text), "%d%%", (int)clamped);
     lv_label_set_text_static(slot->icon, slot->text);
+}
+
+static void battery_debounce_cb(lv_timer_t *timer)
+{
+    uint8_t source = (uint8_t)(uintptr_t)timer->user_data;
+    debounce_timer[source] = NULL;
+
+    int32_t target = pending_level[source];
+    if (target < 0) return;
+
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->bar == NULL) return;
+
+    lv_anim_delete(&anim_displayed_level[source], NULL);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, &anim_displayed_level[source]);
+    lv_anim_set_exec_cb(&a, battery_anim_exec_cb);
+    lv_anim_set_duration(&a, BATTERY_ANIM_MS);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+    lv_anim_set_values(&a, anim_displayed_level[source], target);
+    lv_anim_start(&a);
 }
 
 /* Bar styles (design doc §4): track on LV_PART_MAIN, tier on LV_PART_INDICATOR. */
@@ -229,15 +259,24 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 
     LOG_DBG("source: %d, level: %d, usb: %d", state.source, state.level, state.usb_present);
 
+    if (reconnecting)
+    {
+        pending_level[state.source] = (state.level < 1) ? 0 : state.level;
+        if (debounce_timer[state.source] == NULL)
+        {
+            debounce_timer[state.source] = lv_timer_create(
+                battery_debounce_cb, DEBOUNCE_MS, (void *)(uintptr_t)state.source);
+        }
+        return;
+    }
+
     int32_t target = (state.level < 1) ? 0 : state.level;
     int32_t start = anim_displayed_level[state.source];
 
     if (state.level < 1)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
         lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
-        lv_label_set_text_static(slot->icon, "0%");
         lv_label_set_text_static(slot->tag, "X");
     }
     else
@@ -257,7 +296,7 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
         lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
     }
 
-    lv_anim_delete(&anim_displayed_level[state.source], battery_anim_exec_cb);
+    lv_anim_delete(&anim_displayed_level[state.source], NULL);
 
     lv_anim_t a;
     lv_anim_init(&a);
