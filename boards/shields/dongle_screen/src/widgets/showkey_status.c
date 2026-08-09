@@ -11,6 +11,7 @@
 #include <zmk/display.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
+#include <zmk/hid.h>
 #include <dt-bindings/zmk/hid_usage_pages.h>
 #include <dt-bindings/zmk/modifiers.h>
 
@@ -26,8 +27,6 @@ struct showkey_status_state
     bool pressed;
     uint16_t usage_page;
     uint32_t keycode;
-    uint8_t implicit_modifiers;
-    uint8_t explicit_modifiers;
 };
 
 enum showkey_kind
@@ -100,9 +99,12 @@ static const struct key_name
 };
 
 /* Shift-aware plain/shifted char pairs for letters, digits and punctuation.
- * Shift state comes from two sources: the implicit/explicit modifiers on the
- * key event itself (LS() binds, caps-word, homerow mods) AND dedicated Shift
- * key press events tracked via the shift_pressed flag. */
+ * Shift state comes from the central's live HID keyboard report
+ * (zmk_hid_get_keyboard_report()->body.modifiers), which reflects the
+ * modifiers held on ANY half of the split — the same state the host
+ * receives. The keycode event's own implicit/explicit_modifiers fields only
+ * describe mods baked into that key's binding (e.g. LS(SEMI)) and can never
+ * tell us about Shift held on the other half, so they are not used here. */
 struct shift_pair
 {
     uint8_t usage;
@@ -131,10 +133,6 @@ static const struct shift_pair shift_pairs[] = {
 
 /* Static text buffer — lv_label_set_text_static() does NOT copy. */
 static char showkey_buf[16];
-
-/* Tracks whether a dedicated Shift key (usage 0xE1/0xE5) is currently held.
- * Separate from the modifiers carried on the key event itself. */
-static bool shift_pressed;
 
 static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycode, bool shifted)
 {
@@ -195,8 +193,6 @@ static struct showkey_status_state get_state(const zmk_event_t *_eh)
         .pressed = ev && ev->state,
         .usage_page = ev ? ev->usage_page : 0,
         .keycode = ev ? ev->keycode : 0,
-        .implicit_modifiers = ev ? ev->implicit_modifiers : 0,
-        .explicit_modifiers = ev ? ev->explicit_modifiers : 0,
     };
 }
 
@@ -285,17 +281,11 @@ static void showkey_apply(struct zmk_widget_showkey_status *widget, struct showk
 
 static void showkey_status_update_cb(struct showkey_status_state state)
 {
-    /* Dedicated Shift keys (0xE1/0xE5) arrive as their own events — track
-     * their press/release state. The shift key itself still renders its icon. */
-    if (state.usage_page == HID_USAGE_KEY &&
-        (state.keycode == HID_USAGE_KEY_KEYBOARD_LEFTSHIFT ||
-         state.keycode == HID_USAGE_KEY_KEYBOARD_RIGHTSHIFT))
-    {
-        shift_pressed = state.pressed;
-    }
-
-    bool shifted = shift_pressed || (state.implicit_modifiers & (MOD_LSFT | MOD_RSFT)) ||
-                   (state.explicit_modifiers & (MOD_LSFT | MOD_RSFT));
+    /* Read the central's live HID report — the single cross-half source of
+     * truth (hid_listener builds it from every half's keycode events, same
+     * bytes the host receives). Shift held on the OTHER half is visible here,
+     * which the keycode event's own modifier fields can never tell us. */
+    bool shifted = (zmk_hid_get_keyboard_report()->body.modifiers & (MOD_LSFT | MOD_RSFT)) != 0;
 
     struct zmk_widget_showkey_status *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
