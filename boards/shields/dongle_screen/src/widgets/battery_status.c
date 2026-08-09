@@ -97,16 +97,19 @@ struct battery_object
 static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 
 /*
- * Battery SOC filtering: EMA (exponential moving average) + step limiter.
- * Fixed-point EMA with scale=256 avoids floating-point on this MCU.
+ * Battery SOC filtering: EMA (exponential moving average) + step limiter
+ * + spike rejection. Fixed-point EMA with scale=256 avoids floating-point.
  * EMA_ALPHA_FP = 0.35 × 256 ≈ 90  →  ~3-sample equivalent smoothing.
- * STEP_LIMIT = 10  →  max change per update $|$10%% to prevent wake jumps.
+ * STEP_LIMIT = 10  →  max change per update |10%%| to prevent wake jumps.
+ * SPIKE_THRESHOLD = 25  →  single-sample jumps >25%% are rejected (a real
+ *   battery cannot physically change that much in 120 s).
  * On reconnect (sleep→wake), the raw level is used directly to avoid a
  * multi-update ramp that would take minutes at the 120 s report interval.
  */
-#define EMA_ALPHA_FP  90
-#define EMA_SCALE     256
-#define STEP_LIMIT    10
+#define EMA_ALPHA_FP     90
+#define EMA_SCALE        256
+#define STEP_LIMIT       10
+#define SPIKE_THRESHOLD  25
 
 static int32_t filtered_level[BATTERY_SLOT_COUNT]; /* fixed-point: real = val / EMA_SCALE */
 
@@ -115,17 +118,23 @@ static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
     int32_t f = filtered_level[source];
 
     if (reconnecting || raw < 1) {
-        /* First reading after sleep or disconnect: accept raw immediately. */
         filtered_level[source] = (int32_t)raw * EMA_SCALE;
         return raw;
     }
 
+    if (raw > 100) raw = 100;
+
+    int32_t prev_display = f / EMA_SCALE;
+    int32_t delta = (int32_t)raw - prev_display;
+
+    if (delta > SPIKE_THRESHOLD || delta < -SPIKE_THRESHOLD) {
+        return (uint8_t)prev_display;
+    }
+
     int32_t raw_fp = (int32_t)raw * EMA_SCALE;
 
-    /* EMA: smoothed = (α × raw + (1-α) × prev) */
     int32_t ema = (EMA_ALPHA_FP * raw_fp + (EMA_SCALE - EMA_ALPHA_FP) * f) / EMA_SCALE;
 
-    /* Step limiter: clamp change to ±STEP_LIMIT */
     int32_t limit = STEP_LIMIT * EMA_SCALE;
     if (ema > f + limit) {
         ema = f + limit;
@@ -318,6 +327,29 @@ static void battery_status_refresh(void)
     }
 }
 
+static void battery_status_poll_cb(lv_timer_t *timer)
+{
+    uint8_t level = 0;
+    bool changed = false;
+
+    for (uint8_t i = 0; i < BATTERY_SLOT_COUNT; i++)
+    {
+        if (zmk_split_central_get_peripheral_battery_level(i, &level) != 0)
+        {
+            continue;
+        }
+
+        if (last_battery_levels[i] != (int8_t)level)
+        {
+            last_battery_levels[i] = level;
+            set_battery_symbol(NULL, (struct battery_state){
+                .source = i,
+                .level = level,
+            });
+        }
+    }
+}
+
 static struct battery_state peripheral_battery_status_get_state(const zmk_event_t *eh)
 {
     const struct zmk_peripheral_battery_state_changed *ev = as_zmk_peripheral_battery_state_changed(eh);
@@ -441,6 +473,8 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
 
     // Initialize peripheral tracking
     init_peripheral_tracking();
+
+    widget->poll_timer = lv_timer_create(battery_status_poll_cb, 1000, widget);
 
     widget_dongle_battery_status_init();
 
