@@ -121,8 +121,7 @@ static void battery_anim_exec_cb(void *var, int32_t v)
 
 static void battery_anim_completed_cb(lv_anim_t *a)
 {
-    void *var = lv_anim_get_var(a);
-    uint8_t source = (var == &anim_displayed_level[0]) ? 0 : 1;
+    uint8_t source = (a->var == &anim_displayed_level[0]) ? 0 : 1;
     struct battery_object *slot = &battery_objects[source];
     if (slot->tag == NULL) return;
 
