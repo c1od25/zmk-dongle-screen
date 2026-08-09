@@ -111,18 +111,28 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 #define STEP_LIMIT       10
 #define SPIKE_THRESHOLD  25
 
-static int32_t filtered_level[BATTERY_SLOT_COUNT]; /* fixed-point: real = val / EMA_SCALE */
+static int32_t filtered_level[BATTERY_SLOT_COUNT];
+static int8_t  last_normal_level[BATTERY_SLOT_COUNT]; /* last known-good value (≥1) */
 
 static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
 {
     int32_t f = filtered_level[source];
 
-    if (reconnecting || raw < 1) {
-        filtered_level[source] = (int32_t)raw * EMA_SCALE;
-        return raw;
+    if (raw < 1) {
+        filtered_level[source] = 0;
+        return 0;
     }
 
     if (raw > 100) raw = 100;
+
+    if (reconnecting) {
+        if (last_normal_level[source] > 0) {
+            filtered_level[source] = (int32_t)last_normal_level[source] * EMA_SCALE;
+            return (uint8_t)last_normal_level[source];
+        }
+        filtered_level[source] = (int32_t)raw * EMA_SCALE;
+        return raw;
+    }
 
     int32_t prev_display = f / EMA_SCALE;
     int32_t delta = (int32_t)raw - prev_display;
@@ -243,6 +253,10 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 
     // Update our tracking
     last_battery_levels[state.source] = state.level;
+
+    if (!reconnecting && state.level >= 1) {
+        last_normal_level[state.source] = (int8_t)state.level;
+    }
 
     state.level = apply_filter(state.source, state.level, reconnecting);
 
