@@ -4,11 +4,7 @@
  * Opts: --bpp 4 --size 20 --no-compress --use-color-info --font /home/df1080/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFontMono-Bold.ttf --symbols=󱇰 --format lvgl -o NerdFonts_Regular_20.c
  ******************************************************************************/
 
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
-#else
-#include "lvgl/lvgl.h"
-#endif
 
 #ifndef NERDFONTS_REGULAR_20
 #define NERDFONTS_REGULAR_20 1

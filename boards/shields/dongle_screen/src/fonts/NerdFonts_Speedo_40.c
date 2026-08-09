@@ -4,11 +4,7 @@
  * Opts: --bpp 2 --size 40 --no-compress --no-prefilter --no-kerning --format lvgl --lv-include lvgl.h --font /home/df1080/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFontMono-Bold.ttf -r 0xF04C5 -o NerdFonts_Speedo_40.c
  ******************************************************************************/
 
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
-#else
-#include "lvgl.h"
-#endif
 
 #ifndef NERDFONTS_SPEEDO_40
 #define NERDFONTS_SPEEDO_40 1

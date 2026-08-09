@@ -4,11 +4,7 @@
  * Opts: --bpp 4 --size 20 --no-compress --no-prefilter --no-kerning --format lvgl --lv-include lvgl.h --font /home/df1080/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFontMono-Bold.ttf --range 0x20-0x7E -o Mono_20.c
  ******************************************************************************/
 
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
-#else
-#include "lvgl.h"
-#endif
 
 #ifndef MONO_20
 #define MONO_20 1

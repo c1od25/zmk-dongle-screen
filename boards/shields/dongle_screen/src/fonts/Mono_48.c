@@ -4,11 +4,7 @@
  * Opts: --bpp 2 --size 48 --no-compress --no-prefilter --no-kerning --format lvgl --lv-include lvgl.h --font /home/df1080/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFontMono-Bold.ttf --range 0x20-0x7E -o Mono_48.c
  ******************************************************************************/
 
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
-#else
-#include "lvgl.h"
-#endif
 
 #ifndef MONO_48
 #define MONO_48 1
