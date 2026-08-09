@@ -107,6 +107,11 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
  * the interpolated value into the LVGL bar and percentage label in sync. */
 static int32_t anim_displayed_level[BATTERY_SLOT_COUNT];
 
+/* Per-slot animation target: -1 when no animation is running, otherwise the
+ * end value of the current lv_anim. Used to suppress duplicate events that
+ * arrive while an animation is already heading to the same target. */
+static int32_t target_level[BATTERY_SLOT_COUNT];
+
 static void battery_anim_exec_cb(void *var, int32_t v)
 {
     uint8_t source = (var == &anim_displayed_level[0]) ? 0 : 1;
@@ -123,6 +128,7 @@ static void battery_anim_completed_cb(lv_anim_t *a)
 {
     uint8_t source = (a->var == &anim_displayed_level[0]) ? 0 : 1;
     struct battery_object *slot = &battery_objects[source];
+    target_level[source] = -1;
     if (slot->tag == NULL) return;
 
     if (anim_displayed_level[source] == 0) {
@@ -245,6 +251,12 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 
     int32_t target = (state.level < 1) ? 0 : state.level;
     int32_t start = anim_displayed_level[state.source];
+
+    if (target == target_level[state.source])
+    {
+        return;
+    }
+    target_level[state.source] = target;
 
     /* Tier and colors switch instantly so the bar accent matches the target from frame 1. */
     if (state.level < 1 || state.level < 30)
