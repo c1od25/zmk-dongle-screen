@@ -32,9 +32,9 @@ struct showkey_status_state
 
 enum showkey_kind
 {
-    SHOWKEY_TEXT,      /* Mono_36 name only */
+    SHOWKEY_TEXT,      /* Mono_48 name only */
     SHOWKEY_ICON,      /* Nerd Font icon only */
-    SHOWKEY_SIDE_ICON, /* L/R prefix (Mono_36) + Nerd Font icon */
+    SHOWKEY_SIDE_ICON, /* L/R prefix (Mono_48) + Nerd Font icon */
 };
 
 struct showkey_lookup
@@ -42,11 +42,11 @@ struct showkey_lookup
     enum showkey_kind kind;
     const char *side; /* "L"/"R" for SHOWKEY_SIDE_ICON */
     const char *icon; /* Nerd Font PUA glyph */
-    const char *text; /* Mono_36 name */
+    const char *text; /* Mono_48 name */
 };
 
 /* Nerd Font PUA glyphs — codepoints verified against nerd-fonts-generated.css
- * and present in NerdFonts_Regular_40 (see src/fonts/NerdFonts_Regular_40.c). */
+ * and present in NerdFonts_Regular_48 (see src/fonts/NerdFonts_Regular_48.c). */
 #define ICON_CTRL  "\U000F0634" /* nf-md-apple_keyboard_control */
 #define ICON_SHIFT "\U000F0636" /* nf-md-apple_keyboard_shift */
 #define ICON_ALT   "\U000F0635" /* nf-md-apple_keyboard_option */
@@ -81,7 +81,7 @@ static const struct key_icon
     {0x29, SHOWKEY_ICON, NULL, ICON_ESC},       {0x39, SHOWKEY_ICON, NULL, ICON_CAPS},
 };
 
-/* Remaining non-icon keys keep their concise Mono_36 names. */
+/* Remaining non-icon keys keep their concise Mono_48 names. */
 static const struct key_name
 {
     uint8_t usage;
@@ -349,20 +349,23 @@ int zmk_widget_showkey_status_init(struct zmk_widget_showkey_status *widget, lv_
     lv_obj_set_size(widget->obj, 200, 56);
     lv_obj_set_pos(widget->obj, 60, 112);
 #else
-    lv_obj_set_size(widget->obj, 108, 82);
-    lv_obj_set_pos(widget->obj, 66, 138);
+    /* Portrait: widened to fit a 5-char name at Mono_48 (5*28.8 + 4 letter
+     * spaces = 148px) while keeping the stack's center axis (screen 240/2).
+     * Center at x=120 → 120 - 152/2 = 44. */
+    lv_obj_set_size(widget->obj, 152, 82);
+    lv_obj_set_pos(widget->obj, 44, 138);
 #endif
 
-    /* Mono_36 (full ASCII) — text keys plus the L/R prefix for mods. */
+    /* Mono_48 (full ASCII) — text keys plus the L/R prefix for mods. */
     widget->label = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->label, &Mono_36, LV_PART_MAIN);
+    lv_obj_set_style_text_font(widget->label, &Mono_48, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->label, lv_color_hex(0xececef), LV_PART_MAIN);
     lv_label_set_text_static(widget->label, "");
     lv_obj_align(widget->label, LV_ALIGN_CENTER, 0, 0);
 
-    /* NerdFonts_Regular_40 — icon glyphs (mods/arrows/special keys). */
+    /* NerdFonts_Regular_48 — icon glyphs (mods/arrows/special keys). */
     widget->icon_label = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(widget->icon_label, &NerdFonts_Regular_40, LV_PART_MAIN);
+    lv_obj_set_style_text_font(widget->icon_label, &NerdFonts_Regular_48, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->icon_label, lv_color_hex(0xececef), LV_PART_MAIN);
     lv_label_set_text_static(widget->icon_label, "");
     lv_obj_align(widget->icon_label, LV_ALIGN_CENTER, 0, 0);

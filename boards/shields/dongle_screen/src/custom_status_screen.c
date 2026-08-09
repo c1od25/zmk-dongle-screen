@@ -121,10 +121,12 @@ lv_obj_t *zmk_display_status_screen()
 
 #if CONFIG_DONGLE_SCREEN_SLEEP_ACTIVE
     zmk_widget_sleep_status_init(&sleep_status_widget, screen);
+    /* Sleep icon takes over the BT cell (was TOP_RIGHT(-12,1) of the top bar):
+     * right edge at 308 (H) / 228 (V) → obj x = right_edge - 18 (obj width). */
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 272, 10);
+    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 290, 10);
 #else
-    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 192, 10);
+    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 210, 10);
 #endif
 #endif
 

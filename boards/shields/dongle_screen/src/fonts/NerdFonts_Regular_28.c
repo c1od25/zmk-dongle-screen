@@ -1,10 +1,14 @@
 /*******************************************************************************
  * Size: 28 px
  * Bpp: 4
- * Opts: --bpp 4 --size 28 --no-compress --use-color-info --font JetBrainsMonoNLNerdFontMono-Regular.ttf --symbols=󰖩󰌪 --format lvgl -o NerdFonts_Regular_28.c
+ * Opts: --bpp 4 --size 28 --no-compress --use-color-info --font /home/df1080/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFontMono-Bold.ttf --symbols=󰖩󰌪 --format lvgl -o /tmp/opencode/yads-integ/boards/shields/dongle_screen/src/fonts/NerdFonts_Regular_28.c
  ******************************************************************************/
 
+#ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
+#else
+#include "lvgl/lvgl.h"
+#endif
 
 #ifndef NERDFONTS_REGULAR_28
 #define NERDFONTS_REGULAR_28 1

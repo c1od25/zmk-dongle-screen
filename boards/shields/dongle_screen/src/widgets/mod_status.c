@@ -43,7 +43,7 @@ static const lv_point_t mod_key_pos[4] = {
 #endif
 };
 
-/* Nerd Font PUA mod symbols (PRESENT in NerdFonts_Regular_20/40). */
+/* Nerd Font PUA mod symbols (PRESENT in NerdFonts_Regular_40). */
 #define MOD_ICON_SHIFT "\U000F0636" /* nf-md-apple_keyboard_shift   U+F0636 */
 #define MOD_ICON_CTRL  "\U000F0634" /* nf-md-apple_keyboard_control U+F0634 */
 #define MOD_ICON_ALT   "\U000F0635" /* nf-md-apple_keyboard_option  U+F0635 */

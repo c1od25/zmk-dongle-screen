@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 40 px
  * Bpp: 2
- * Opts: --bpp 2 --size 40 --no-compress --no-prefilter --no-kerning --format lvgl --lv-include lvgl.h --font /home/df1080/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFontMono-Regular.ttf -r 0xF04C5 -o NerdFonts_Speedo_40.c
+ * Opts: --bpp 2 --size 40 --no-compress --no-prefilter --no-kerning --format lvgl --lv-include lvgl.h --font /home/df1080/.local/share/fonts/JetBrainsMono/JetBrainsMonoNerdFontMono-Bold.ttf -r 0xF04C5 -o NerdFonts_Speedo_40.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
