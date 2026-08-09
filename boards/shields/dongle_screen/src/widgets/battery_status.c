@@ -106,11 +106,7 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 /* Per-slot animated value: lv_anim writes into this; the exec callback pushes
  * the interpolated value into the LVGL bar and percentage label in sync. */
 static int32_t anim_displayed_level[BATTERY_SLOT_COUNT];
-
-/* Per-slot animation target: -1 when no animation is running, otherwise the
- * end value of the current lv_anim. Used to suppress duplicate events that
- * arrive while an animation is already heading to the same target. */
-static int32_t target_level[BATTERY_SLOT_COUNT];
+static lv_anim_t *running_anim[BATTERY_SLOT_COUNT];
 
 static void battery_anim_exec_cb(void *var, int32_t v)
 {
@@ -128,7 +124,7 @@ static void battery_anim_completed_cb(lv_anim_t *a)
 {
     uint8_t source = (a->var == &anim_displayed_level[0]) ? 0 : 1;
     struct battery_object *slot = &battery_objects[source];
-    target_level[source] = -1;
+    running_anim[source] = NULL;
     if (slot->tag == NULL) return;
 
     if (anim_displayed_level[source] == 0) {
@@ -252,13 +248,6 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
     int32_t target = (state.level < 1) ? 0 : state.level;
     int32_t start = anim_displayed_level[state.source];
 
-    if (target == target_level[state.source])
-    {
-        return;
-    }
-    target_level[state.source] = target;
-
-    /* Tier and colors switch instantly so the bar accent matches the target from frame 1. */
     if (state.level < 1 || state.level < 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
@@ -276,10 +265,11 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
         lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
     }
 
-    /* Cancel any in-flight animation on this slot before starting a new one;
-     * lv_anim_delete does not fire the completed_cb, so tag state is managed
-     * explicitly above (reconnect → L/R) or below (sleep drain → X on completion). */
-    lv_anim_delete(&anim_displayed_level[state.source], NULL);
+    if (running_anim[state.source] != NULL)
+    {
+        lv_anim_set_values(running_anim[state.source], start, target);
+        return;
+    }
 
     lv_anim_t a;
     lv_anim_init(&a);
@@ -288,13 +278,9 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
     lv_anim_set_duration(&a, BATTERY_ANIM_MS);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
     lv_anim_set_values(&a, start, target);
+    lv_anim_set_completed_cb(&a, battery_anim_completed_cb);
 
-    if (state.level < 1)
-    {
-        lv_anim_set_completed_cb(&a, battery_anim_completed_cb);
-    }
-
-    lv_anim_start(&a);
+    running_anim[state.source] = lv_anim_start(&a);
 }
 
 void battery_status_update_cb(struct battery_state state)
