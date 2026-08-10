@@ -109,10 +109,11 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 #define EMA_ALPHA_FP     90
 #define EMA_SCALE        256
 #define STEP_LIMIT       10
-#define SPIKE_THRESHOLD  25
+#define SPIKE_THRESHOLD  45
 
 static int32_t filtered_level[BATTERY_SLOT_COUNT];
-static int8_t  last_normal_level[BATTERY_SLOT_COUNT]; /* last known-good value (≥1) */
+static int8_t  last_normal_level[BATTERY_SLOT_COUNT];
+static bool     just_reconnected[BATTERY_SLOT_COUNT]; /* last known-good value (≥1) */
 
 static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
 {
@@ -120,16 +121,24 @@ static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
 
     if (raw < 1) {
         filtered_level[source] = 0;
+        just_reconnected[source] = false;
         return 0;
     }
 
     if (raw > 100) raw = 100;
 
     if (reconnecting) {
+        just_reconnected[source] = true;
         if (last_normal_level[source] > 0) {
             filtered_level[source] = (int32_t)last_normal_level[source] * EMA_SCALE;
             return (uint8_t)last_normal_level[source];
         }
+        filtered_level[source] = (int32_t)raw * EMA_SCALE;
+        return raw;
+    }
+
+    if (just_reconnected[source]) {
+        just_reconnected[source] = false;
         filtered_level[source] = (int32_t)raw * EMA_SCALE;
         return raw;
     }
