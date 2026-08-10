@@ -72,10 +72,10 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
     widget->obj = lv_obj_create(parent);
 
     lv_obj_set_size(widget->obj, 108, 22);
-    lv_obj_set_pos(widget->obj, 66, 10);
+    lv_obj_set_pos(widget->obj, 66, 15);
 #ifdef CONFIG_DONGLE_SCREEN_HORIZONTAL
     lv_obj_set_size(widget->obj, 200, 22);
-    lv_obj_set_pos(widget->obj, 60, 10);
+    lv_obj_set_pos(widget->obj, 60, 13);
 #endif
 
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);

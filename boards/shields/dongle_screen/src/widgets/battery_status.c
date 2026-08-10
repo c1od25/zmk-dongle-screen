@@ -43,9 +43,11 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
  * The widget self-positions its two battery columns (lbat / rbat); it is sized
  * to the full panel so the screen file's BOTTOM_MID alignment is a no-op and
  * the widget origin lands at panel (0,0).
+ * BATTERY_BAR_Y follows the top bar shift (portrait +5 / landscape +3) so the
+ * bar top keeps its 40 px gap to the moved topsep in both orientations; the
+ * bar bottom stays glued to the tag top via the runtime bar_h formula.
  */
 #define BATTERY_BAR_W         26
-#define BATTERY_BAR_Y         78
 #define BATTERY_TAG_GAP       4 /* tag-top ↔ bar-bottom gap (both orientations) */
 #define BATTERY_ICON_Y        54
 
@@ -54,6 +56,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_H      240
 #define BATTERY_TAG_BOTTOM    227 /* WPM value bottom (landscape) */
 #define BATTERY_TAG_BOTTOM_OFF -13 /* TAG_BOTTOM - SCREEN_H */
+#define BATTERY_BAR_Y         81 /* topsep at 41 → bar top 40 px below */
 #define BATTERY_SLOT0_BAR_X   17
 #define BATTERY_SLOT1_BAR_X   277
 #define BATTERY_SLOT0_CENTER_X 30
@@ -63,6 +66,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define BATTERY_SCREEN_H      320
 #define BATTERY_TAG_BOTTOM    305 /* WPM value bottom (portrait) */
 #define BATTERY_TAG_BOTTOM_OFF -15 /* TAG_BOTTOM - SCREEN_H */
+#define BATTERY_BAR_Y         83 /* topsep at 43 → bar top 40 px below */
 #define BATTERY_SLOT0_BAR_X   20
 #define BATTERY_SLOT1_BAR_X   194
 #define BATTERY_SLOT0_CENTER_X 33

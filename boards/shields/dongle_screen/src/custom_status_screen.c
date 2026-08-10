@@ -76,10 +76,12 @@ static void mem_debug_timer_cb(lv_timer_t *timer)
  * only — no flex/grid anywhere.
  *
  * Positioning contract per widget (verified against each src/widgets/*.c init):
- *   output    full-width top bar (240/320 x 22); screen aligns TOP_MID(0,10)
+ *   output    full-width top bar (240/320 x 22); screen aligns TOP_MID(0,15)
+ *             portrait / TOP_MID(0,13) landscape — matches the L/R tag's
+ *             bottom gap (15 / 13 px) for vertical symmetry.
  *             — the usb(10,10) / bt(184,10) cells are placed inside the bar by
  *             the widget itself (lv_obj_align TOP_LEFT/TOP_RIGHT + dot).
- *   layer     self-positions its container (66,10) 108x22 / (60,10) 200x22.
+ *   layer     self-positions its container (66,15) 108x22 / (60,13) 200x22.
  *   battery   full-panel (240x320 / 320x240); self-positions the two columns
  *             (lbat / rbat). Origin at panel (0,0) — no alignment needed.
  *   mod       sizes its container (108x82 / 200x56) but does NOT self-position;
@@ -119,7 +121,11 @@ lv_obj_t *zmk_display_status_screen()
     /* Top bar — output widget (full-width) first. */
 #if CONFIG_DONGLE_SCREEN_OUTPUT_ACTIVE
     zmk_widget_output_status_init(&output_status_widget, screen);
-    lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), LV_ALIGN_TOP_MID, 0, 10);
+#if CONFIG_DONGLE_SCREEN_HORIZONTAL
+    lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), LV_ALIGN_TOP_MID, 0, 13);
+#else
+    lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), LV_ALIGN_TOP_MID, 0, 15);
+#endif
 #endif
 
 #if CONFIG_DONGLE_SCREEN_SLEEP_ACTIVE
@@ -127,9 +133,9 @@ lv_obj_t *zmk_display_status_screen()
     /* Sleep icon takes over the BT cell (was TOP_RIGHT(-12,1) of the top bar):
      * right edge at 308 (H) / 228 (V) → obj x = right_edge - 18 (obj width). */
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 290, 10);
+    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 290, 13);
 #else
-    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 210, 10);
+    lv_obj_set_pos(zmk_widget_sleep_status_obj(&sleep_status_widget), 210, 15);
 #endif
 #endif
 
@@ -138,19 +144,20 @@ lv_obj_t *zmk_display_status_screen()
 #endif
 
     /* Top separator line (design §2.3 / §3.3 `topsep`): a filled 1 px line in
-     * the `border` color #2a2a34 at y=38. The design's 6 px row with a 1 px
-     * bottom border (style_top_sep) is simplified to a filled 1 px line for a
-     * crisper render with the same palette color. */
+     * the `border` color #2a2a34, kept 6 px below the top bar (43 portrait /
+     * 41 landscape). The design's 6 px row with a 1 px bottom border
+     * (style_top_sep) is simplified to a filled 1 px line for a crisper render
+     * with the same palette color. */
     lv_obj_t *topsep = lv_obj_create(screen);
     lv_obj_remove_style_all(topsep);
     lv_obj_remove_flag(topsep, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(topsep, lv_color_hex(0x2a2a34), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(topsep, LV_OPA_COVER, LV_PART_MAIN);
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-    lv_obj_set_pos(topsep, 10, 38);
+    lv_obj_set_pos(topsep, 10, 41);
     lv_obj_set_size(topsep, 300, 1);
 #else
-    lv_obj_set_pos(topsep, 10, 38);
+    lv_obj_set_pos(topsep, 10, 43);
     lv_obj_set_size(topsep, 220, 1);
 #endif
 
