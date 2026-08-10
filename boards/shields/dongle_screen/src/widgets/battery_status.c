@@ -126,6 +126,52 @@ static bool     just_reconnected[BATTERY_SLOT_COUNT]; /* wake: skip spike check 
 static int8_t  pending_level[BATTERY_SLOT_COUNT];
 static lv_timer_t *pending_timer[BATTERY_SLOT_COUNT];
 
+/*
+ * Bar value animation: the processed level transitions from the current bar
+ * value to the target over BAR_ANIM_MS. Wake (rising) uses an overshoot
+ * path for a lively elastic feel; drain (falling) uses ease-out so the bar
+ * settles smoothly. A per-slot anim_level[] var is driven by lv_anim and the
+ * exec callback pushes both the bar and the percent label in sync.
+ */
+#define BAR_ANIM_MS 800
+
+static int32_t anim_level[BATTERY_SLOT_COUNT];
+
+static void battery_anim_exec_cb(void *var, int32_t v)
+{
+    uint8_t source = (var == &anim_level[0]) ? 0 : 1;
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->bar == NULL) return;
+
+    int32_t clamped = v < 0 ? 0 : (v > 100 ? 100 : v);
+    lv_bar_set_value(slot->bar, clamped, LV_ANIM_OFF);
+    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)clamped);
+    lv_label_set_text_static(slot->icon, slot->text);
+}
+
+static void battery_anim_start(uint8_t source, int32_t target)
+{
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->bar == NULL) return;
+
+    int32_t start = lv_bar_get_value(slot->bar);
+
+    if (start == target) {
+        return;
+    }
+
+    lv_anim_delete(&anim_level[source], battery_anim_exec_cb);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, &anim_level[source]);
+    lv_anim_set_exec_cb(&a, battery_anim_exec_cb);
+    lv_anim_set_values(&a, start, target);
+    lv_anim_set_duration(&a, BAR_ANIM_MS);
+    lv_anim_set_path_cb(&a, target > start ? lv_anim_path_overshoot : lv_anim_path_ease_out);
+    lv_anim_start(&a);
+}
+
 static void battery_display_render(uint8_t source);
 
 static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
@@ -267,18 +313,17 @@ static void battery_display_render(uint8_t source)
     int8_t level = pending_level[source];
     if (level < 1)
     {
-        /* Disconnected: empty bar, red "X" tag (design §1). */
-        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
+        /* Disconnected: empty bar, red "X" tag (design §1). Bar still animates
+         * down to 0 for a smooth drain; the X tag appears immediately. */
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
         lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
-        lv_label_set_text_static(slot->icon, "0%");
         lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
         lv_label_set_text_static(slot->tag, "X");
+        battery_anim_start(source, 0);
         return;
     }
 
-    /* Bar fill (no animation on updates) + tier: <30 lo (red), else hi. */
-    lv_bar_set_value(slot->bar, level, LV_ANIM_OFF);
+    /* Tier + colors switch instantly; value animates to the target. */
     if (level < 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
@@ -290,13 +335,11 @@ static void battery_display_render(uint8_t source)
         lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
     }
 
-    /* Icon: "NN%" percent text, color per tier (design §1 table). */
-    snprintf(slot->text, sizeof(slot->text), "%d%%", level);
-    lv_label_set_text_static(slot->icon, slot->text);
-
     /* Tag: restore the slot designator after a disconnect "X". */
     lv_label_set_text_static(slot->tag, source == 0 ? "L" : "R");
     lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
+
+    battery_anim_start(source, level);
 }
 
 static void battery_pending_cb(lv_timer_t *timer)
