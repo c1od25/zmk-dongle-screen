@@ -301,8 +301,12 @@ static void battery_display_render(uint8_t source)
 
 static void battery_pending_cb(lv_timer_t *timer)
 {
-    uint8_t source = (timer == pending_timer[0]) ? 0 : 1;
+    /* Identify the slot from the user_data passed at creation; the pointer
+     * comparison is fragile because the timer may fire after pending_timer[]
+     * was cleared, and a stale looping timer would be misidentified. */
+    uint8_t source = (uint8_t)(uintptr_t)lv_timer_get_user_data(timer);
     pending_timer[source] = NULL;
+    lv_timer_delete(timer);
 
     if (pending_level[source] == PENDING_NONE)
     {
@@ -374,6 +378,9 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
     {
         pending_timer[state.source] = lv_timer_create(battery_pending_cb, DISPLAY_HOLD_MS,
                                                       (void *)(uintptr_t)state.source);
+        /* One-shot: auto-deletes after firing, so a stale looping timer can
+         * never linger and be misidentified as the other slot's callback. */
+        lv_timer_set_repeat_count(pending_timer[state.source], 1);
     }
 }
 
