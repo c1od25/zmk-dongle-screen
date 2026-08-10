@@ -9,15 +9,13 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/display.h>
 #include <zmk/event_manager.h>
-#include <zmk/events/battery_state_changed.h>
-#include <zmk/split/central.h>
+#include <zmk/events/keycode_state_changed.h>
 
 #include "theme.h"
 
-#define THEME_LEVEL_UNKNOWN 0xFF
-#define THEME_MAX_REFRESH   8
+#define THEME_MAX_REFRESH 8
 
-static uint8_t last_levels[2] = {THEME_LEVEL_UNKNOWN, THEME_LEVEL_UNKNOWN};
+static int64_t last_activity_ms;
 static lv_color_t accent = THEME_ACCENT_RED;
 static bool asleep;
 
@@ -25,9 +23,16 @@ static accent_refresh_cb_t refresh_cbs[THEME_MAX_REFRESH];
 static uint8_t refresh_count;
 static int fade_var;
 
+static void theme_start_fade(bool to_cyan);
+
 lv_color_t theme_accent_color(void)
 {
     return accent;
+}
+
+bool theme_is_asleep(void)
+{
+    return asleep;
 }
 
 void theme_register_refresh(accent_refresh_cb_t cb)
@@ -48,7 +53,51 @@ static void theme_fire_refresh(void)
 
 static bool theme_compute_asleep(void)
 {
-    return !((last_levels[0] >= 1) || (last_levels[1] >= 1));
+    return (k_uptime_get() - last_activity_ms) > SLEEP_ACTIVITY_TIMEOUT_MS;
+}
+
+static void theme_work_cb(struct k_work *work)
+{
+    bool now_asleep = theme_compute_asleep();
+    if (now_asleep != asleep)
+    {
+        asleep = now_asleep;
+        theme_start_fade(asleep);
+    }
+}
+K_WORK_DEFINE(theme_work, theme_work_cb);
+
+static int theme_listener_cb(const zmk_event_t *eh)
+{
+    const struct zmk_keycode_state_changed *ev = as_zmk_keycode_state_changed(eh);
+
+    if (ev != NULL && ev->state)
+    {
+        last_activity_ms = k_uptime_get();
+        if (zmk_display_is_initialized())
+        {
+            k_work_submit_to_queue(zmk_display_work_q(), &theme_work);
+        }
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+ZMK_LISTENER(theme, theme_listener_cb);
+ZMK_SUBSCRIPTION(theme, zmk_keycode_state_changed);
+
+static void theme_poll_cb(lv_timer_t *timer)
+{
+    if (theme_compute_asleep() != asleep)
+    {
+        k_work_submit_to_queue(zmk_display_work_q(), &theme_work);
+    }
+}
+
+void theme_init(void)
+{
+    last_activity_ms = k_uptime_get();
+    asleep = theme_compute_asleep();
+    accent = asleep ? THEME_ACCENT_CYAN : THEME_ACCENT_RED;
+    lv_timer_create(theme_poll_cb, 1000, NULL);
 }
 
 static void theme_fade_exec_cb(void *var, int32_t v)
@@ -70,69 +119,4 @@ static void theme_start_fade(bool to_cyan)
     lv_anim_set_values(&a, to_cyan ? 255 : 0, to_cyan ? 0 : 255);
     lv_anim_set_duration(&a, THEME_FADE_MS);
     lv_anim_start(&a);
-}
-
-static void theme_work_cb(struct k_work *work)
-{
-    bool now_asleep = theme_compute_asleep();
-    if (now_asleep != asleep)
-    {
-        asleep = now_asleep;
-        theme_start_fade(asleep);
-    }
-}
-K_WORK_DEFINE(theme_work, theme_work_cb);
-
-static int theme_listener_cb(const zmk_event_t *eh)
-{
-    const struct zmk_peripheral_battery_state_changed *ev =
-        as_zmk_peripheral_battery_state_changed(eh);
-
-    if (ev != NULL && ev->source < ARRAY_SIZE(last_levels))
-    {
-        last_levels[ev->source] = ev->state_of_charge;
-    }
-
-    if (zmk_display_is_initialized())
-    {
-        k_work_submit_to_queue(zmk_display_work_q(), &theme_work);
-    }
-    return ZMK_EV_EVENT_BUBBLE;
-}
-ZMK_LISTENER(theme, theme_listener_cb);
-ZMK_SUBSCRIPTION(theme, zmk_peripheral_battery_state_changed);
-
-static void theme_poll_cb(lv_timer_t *timer)
-{
-    uint8_t level = 0;
-    bool changed = false;
-
-    for (uint8_t i = 0; i < ARRAY_SIZE(last_levels); i++)
-    {
-        if (zmk_split_central_get_peripheral_battery_level(i, &level) != 0)
-        {
-            continue;
-        }
-
-        if (level > 0 || last_levels[i] != THEME_LEVEL_UNKNOWN)
-        {
-            if (last_levels[i] != level)
-            {
-                last_levels[i] = level;
-                changed = true;
-            }
-        }
-    }
-
-    if (changed)
-    {
-        k_work_submit_to_queue(zmk_display_work_q(), &theme_work);
-    }
-}
-
-void theme_init(void)
-{
-    asleep = theme_compute_asleep();
-    accent = asleep ? THEME_ACCENT_CYAN : THEME_ACCENT_RED;
-    lv_timer_create(theme_poll_cb, 1000, NULL);
 }

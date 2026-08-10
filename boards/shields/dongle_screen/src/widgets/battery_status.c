@@ -148,8 +148,9 @@ static void battery_anim_exec_cb(void *var, int32_t v)
     if (slot->bar == NULL) return;
 
     int32_t clamped = v < 0 ? 0 : (v > 100 ? 100 : v);
-    lv_bar_set_value(slot->bar, clamped, LV_ANIM_OFF);
-    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)clamped);
+    int32_t tens = ((clamped + 5) / 10) * 10; /* quantize to 10% steps */
+    lv_bar_set_value(slot->bar, tens, LV_ANIM_OFF);
+    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)tens);
     lv_label_set_text_static(slot->icon, slot->text);
 }
 
@@ -215,12 +216,11 @@ static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
 
     int32_t ema = (EMA_ALPHA_FP * raw_fp + (EMA_SCALE - EMA_ALPHA_FP) * f) / EMA_SCALE;
 
-    /* Step limiter clamps only *rises* (guards against wake spikes); falls are
-     * allowed through immediately so an unplugged battery drops to its real
-     * level right away instead of decaying 10% per report. */
     int32_t limit = STEP_LIMIT * EMA_SCALE;
     if (ema > f + limit) {
         ema = f + limit;
+    } else if (ema < f - limit) {
+        ema = f - limit;
     }
 
     filtered_level[source] = ema;

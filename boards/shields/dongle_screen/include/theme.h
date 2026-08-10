@@ -10,9 +10,13 @@
 /*
  * Sleep-state accent theme.
  *
- * When BOTH split halves are asleep (peripheral battery level < 1 on both
- * slots), every accent-red UI element on the screen gradually fades to
- * cyan-blue over THEME_FADE_MS, and fades back to red on wake.
+ * When there is no key activity for SLEEP_ACTIVITY_TIMEOUT_MS (30s), every
+ * accent-red UI element on the screen gradually fades to cyan-blue over
+ * THEME_FADE_MS, and fades back to red on the next key press.
+ *
+ * Sleep is determined by key activity (zmk_keycode_state_changed), NOT by
+ * peripheral battery levels: the halves no longer use deep sleep
+ * (CONFIG_ZMK_SLEEP=n) so they never drop their BAS battery level to 0.
  *
  * Widgets that render accent-red colors:
  *   - replace their hardcoded red with theme_accent_color()
@@ -24,10 +28,16 @@
 #define THEME_ACCENT_CYAN ((lv_color_t)LV_COLOR_MAKE(0x30, 0xc6, 0xd9))
 #define THEME_FADE_MS     2000
 
+/* No key activity for this long → sleep mode (accent fades to cyan). */
+#define SLEEP_ACTIVITY_TIMEOUT_MS 30000
+
 typedef void (*accent_refresh_cb_t)(void);
 
 /* Current interpolated accent color (red awake, cyan asleep). */
 lv_color_t theme_accent_color(void);
+
+/* Whether the keyboard is currently in sleep mode (no key for 30s). */
+bool theme_is_asleep(void);
 
 /* Register a refresh callback invoked on every fade frame (display thread). */
 void theme_register_refresh(accent_refresh_cb_t cb);

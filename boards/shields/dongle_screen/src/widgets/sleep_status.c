@@ -10,9 +10,6 @@
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/display.h>
-#include <zmk/event_manager.h>
-#include <zmk/events/battery_state_changed.h>
-#include <zmk/split/central.h>
 
 #include "sleep_status.h"
 #include <fonts.h>
@@ -28,40 +25,14 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define SLEEP_WIFI "\U000F05A9"
 #define SLEEP_LEAF "\U000F032A"
 
-/* Icon color follows the theme accent (red awake, cyan-blue asleep). */
-#define SLEEP_LEVEL_UNKNOWN 0xFF
+/* Sleep state is owned by theme.c (30s no-key-activity timeout); this widget
+ * only mirrors it so the icon and the accent fade stay in sync. */
+static bool last_asleep;
 
-enum sleep_mode
+static void set_sleep_symbol(struct zmk_widget_sleep_status *widget, bool asleep)
 {
-    SLEEP_MODE_WORKING,
-    SLEEP_MODE_SLEEPING,
-};
-
-/* Per-source last battery level (<1 = peripheral asleep/disconnected). */
-static uint8_t last_levels[2] = {SLEEP_LEVEL_UNKNOWN, SLEEP_LEVEL_UNKNOWN};
-
-struct sleep_status_state
-{
-    enum sleep_mode mode;
-};
-
-static void set_sleep_symbol(struct zmk_widget_sleep_status *widget, struct sleep_status_state state)
-{
-    if (state.mode == SLEEP_MODE_WORKING)
-    {
-        lv_label_set_text_static(widget->label, SLEEP_WIFI);
-    }
-    else
-    {
-        lv_label_set_text_static(widget->label, SLEEP_LEAF);
-    }
+    lv_label_set_text_static(widget->label, asleep ? SLEEP_LEAF : SLEEP_WIFI);
     lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
-}
-
-static void sleep_status_update_cb(struct sleep_status_state state)
-{
-    struct zmk_widget_sleep_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_sleep_symbol(widget, state); }
 }
 
 static void sleep_status_refresh(void)
@@ -73,64 +44,18 @@ static void sleep_status_refresh(void)
     }
 }
 
-static enum sleep_mode sleep_status_compute_mode(void)
-{
-    bool any_awake = (last_levels[0] >= 1) || (last_levels[1] >= 1);
-
-    return any_awake ? SLEEP_MODE_WORKING : SLEEP_MODE_SLEEPING;
-}
-
-static struct sleep_status_state sleep_status_get_state(const zmk_event_t *eh)
-{
-    const struct zmk_peripheral_battery_state_changed *ev =
-        as_zmk_peripheral_battery_state_changed(eh);
-
-    if (ev != NULL && ev->source < ARRAY_SIZE(last_levels))
-    {
-        last_levels[ev->source] = ev->state_of_charge;
-    }
-
-    return (struct sleep_status_state){
-        .mode = sleep_status_compute_mode(),
-    };
-}
-
 static void sleep_status_poll_cb(lv_timer_t *timer)
 {
-    uint8_t level = 0;
-    bool changed = false;
-
-    for (uint8_t i = 0; i < ARRAY_SIZE(last_levels); i++)
+    bool asleep = theme_is_asleep();
+    if (asleep == last_asleep)
     {
-        if (zmk_split_central_get_peripheral_battery_level(i, &level) != 0)
-        {
-            continue;
-        }
-
-        /* The central cache is {0,0} until a half first connects, so a cached 0
-         * is only meaningful once this source has a known level. */
-        if (level > 0 || last_levels[i] != SLEEP_LEVEL_UNKNOWN)
-        {
-            if (last_levels[i] != level)
-            {
-                last_levels[i] = level;
-                changed = true;
-            }
-        }
+        return;
     }
 
-    if (changed)
-    {
-        sleep_status_update_cb((struct sleep_status_state){
-            .mode = sleep_status_compute_mode(),
-        });
-    }
+    last_asleep = asleep;
+    struct zmk_widget_sleep_status *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_sleep_symbol(widget, asleep); }
 }
-
-ZMK_DISPLAY_WIDGET_LISTENER(widget_sleep_status, struct sleep_status_state,
-                            sleep_status_update_cb, sleep_status_get_state)
-
-ZMK_SUBSCRIPTION(widget_sleep_status, zmk_peripheral_battery_state_changed);
 
 int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_t *parent)
 {
@@ -147,7 +72,6 @@ int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_
 
     widget->label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->label, &NerdFonts_Regular_28, LV_PART_MAIN);
-    lv_label_set_text_static(widget->label, SLEEP_WIFI);
     lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
     lv_obj_align(widget->label, LV_ALIGN_TOP_LEFT, 0, 2);
 
@@ -155,13 +79,10 @@ int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_
 
     theme_register_refresh(sleep_status_refresh);
 
-    /* Poll the central's cached peripheral battery levels every second so a
-     * dropped disconnect event can't leave the sleep state stale. LVGL timers
-     * run inside lv_timer_handler() on the display thread, so they are
-     * thread-safe with LVGL style updates. */
-    widget->poll_timer = lv_timer_create(sleep_status_poll_cb, 1000, widget);
+    last_asleep = theme_is_asleep();
+    set_sleep_symbol(widget, last_asleep);
 
-    widget_sleep_status_init();
+    widget->poll_timer = lv_timer_create(sleep_status_poll_cb, 1000, widget);
 
     return 0;
 }
