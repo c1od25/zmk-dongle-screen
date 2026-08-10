@@ -215,11 +215,12 @@ static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
 
     int32_t ema = (EMA_ALPHA_FP * raw_fp + (EMA_SCALE - EMA_ALPHA_FP) * f) / EMA_SCALE;
 
+    /* Step limiter clamps only *rises* (guards against wake spikes); falls are
+     * allowed through immediately so an unplugged battery drops to its real
+     * level right away instead of decaying 10% per report. */
     int32_t limit = STEP_LIMIT * EMA_SCALE;
     if (ema > f + limit) {
         ema = f + limit;
-    } else if (ema < f - limit) {
-        ema = f - limit;
     }
 
     filtered_level[source] = ema;
