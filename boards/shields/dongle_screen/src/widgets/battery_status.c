@@ -112,8 +112,7 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 #define SPIKE_THRESHOLD  45
 
 static int32_t filtered_level[BATTERY_SLOT_COUNT];
-static int8_t  last_normal_level[BATTERY_SLOT_COUNT];
-static bool     just_reconnected[BATTERY_SLOT_COUNT]; /* last known-good value (≥1) */
+static bool     just_reconnected[BATTERY_SLOT_COUNT]; /* wake: skip spike check for first post-wake value */
 
 static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
 {
@@ -128,11 +127,9 @@ static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
     if (raw > 100) raw = 100;
 
     if (reconnecting) {
+        /* Wake: the peripheral has already settled + preheated its reading,
+         * so accept the fresh value directly (no stale last-known-good). */
         just_reconnected[source] = true;
-        if (last_normal_level[source] > 0) {
-            filtered_level[source] = (int32_t)last_normal_level[source] * EMA_SCALE;
-            return (uint8_t)last_normal_level[source];
-        }
         filtered_level[source] = (int32_t)raw * EMA_SCALE;
         return raw;
     }
@@ -262,10 +259,6 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 
     // Update our tracking
     last_battery_levels[state.source] = state.level;
-
-    if (!reconnecting && state.level >= 1) {
-        last_normal_level[state.source] = (int8_t)state.level;
-    }
 
     state.level = apply_filter(state.source, state.level, reconnecting);
 
