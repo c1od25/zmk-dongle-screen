@@ -114,6 +114,20 @@ static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 static int32_t filtered_level[BATTERY_SLOT_COUNT];
 static bool     just_reconnected[BATTERY_SLOT_COUNT]; /* wake: skip spike check for first post-wake value */
 
+/*
+ * Display buffer: processed (filtered) values are held for DISPLAY_HOLD_MS
+ * before rendering, so rapid successive updates coalesce into one refresh
+ * instead of flickering on screen. A per-slot lv_timer restarts on every
+ * update, committing only the final value when it fires.
+ */
+#define DISPLAY_HOLD_MS 1000
+#define PENDING_NONE    (-1)
+
+static int8_t  pending_level[BATTERY_SLOT_COUNT];
+static lv_timer_t *pending_timer[BATTERY_SLOT_COUNT];
+
+static void battery_display_render(uint8_t source);
+
 static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
 {
     int32_t f = filtered_level[source];
@@ -241,6 +255,64 @@ static bool is_peripheral_reconnecting(uint8_t source, uint8_t new_level)
     return reconnecting;
 }
 
+/* Render the processed (filtered) level for a slot to the LVGL widgets. */
+static void battery_display_render(uint8_t source)
+{
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->bar == NULL)
+    {
+        return;
+    }
+
+    int8_t level = pending_level[source];
+    if (level < 1)
+    {
+        /* Disconnected: empty bar, red "X" tag (design §1). */
+        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
+        set_bar_tier(slot->bar, BATTERY_BAR_LO);
+        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
+        lv_label_set_text_static(slot->icon, "0%");
+        lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
+        lv_label_set_text_static(slot->tag, "X");
+        return;
+    }
+
+    /* Bar fill (no animation on updates) + tier: <30 lo (red), else hi. */
+    lv_bar_set_value(slot->bar, level, LV_ANIM_OFF);
+    if (level < 30)
+    {
+        set_bar_tier(slot->bar, BATTERY_BAR_LO);
+        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
+    }
+    else
+    {
+        set_bar_tier(slot->bar, BATTERY_BAR_HI);
+        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
+    }
+
+    /* Icon: "NN%" percent text, color per tier (design §1 table). */
+    snprintf(slot->text, sizeof(slot->text), "%d%%", level);
+    lv_label_set_text_static(slot->icon, slot->text);
+
+    /* Tag: restore the slot designator after a disconnect "X". */
+    lv_label_set_text_static(slot->tag, source == 0 ? "L" : "R");
+    lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
+}
+
+static void battery_pending_cb(lv_timer_t *timer)
+{
+    uint8_t source = (timer == pending_timer[0]) ? 0 : 1;
+    pending_timer[source] = NULL;
+
+    if (pending_level[source] == PENDING_NONE)
+    {
+        return;
+    }
+
+    battery_display_render(source);
+    pending_level[source] = PENDING_NONE;
+}
+
 static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 {
     if (state.source >= BATTERY_SLOT_COUNT)
@@ -275,40 +347,34 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 #endif
     }
 
+    LOG_DBG("source: %d, level: %d, usb: %d", state.source, state.level, state.usb_present);
+
+    /* Disconnect must show immediately; buffered values render after the hold. */
     if (state.level < 1)
     {
-        /* Disconnected: empty bar, red "X" tag (design §1). */
-        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
-        set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
-        lv_label_set_text_static(slot->icon, "0%");
-        lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
-        lv_label_set_text_static(slot->tag, "X");
+        if (pending_timer[state.source] != NULL)
+        {
+            lv_timer_delete(pending_timer[state.source]);
+            pending_timer[state.source] = NULL;
+        }
+        pending_level[state.source] = 0;
+        battery_display_render(state.source);
+        pending_level[state.source] = PENDING_NONE;
         return;
     }
 
-    LOG_DBG("source: %d, level: %d, usb: %d", state.source, state.level, state.usb_present);
+    /* Stage the processed value and (re)start the display hold timer. */
+    pending_level[state.source] = (int8_t)state.level;
 
-    /* Bar fill (no animation on updates) + tier: <30 lo (red), else hi. */
-    lv_bar_set_value(slot->bar, state.level, LV_ANIM_OFF);
-    if (state.level < 30)
+    if (pending_timer[state.source] != NULL)
     {
-        set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
+        lv_timer_reset(pending_timer[state.source]);
     }
     else
     {
-        set_bar_tier(slot->bar, BATTERY_BAR_HI);
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
+        pending_timer[state.source] = lv_timer_create(battery_pending_cb, DISPLAY_HOLD_MS,
+                                                      (void *)(uintptr_t)state.source);
     }
-
-    /* Icon: "NN%" percent text, color per tier (design §1 table). */
-    snprintf(slot->text, sizeof(slot->text), "%u%%", state.level);
-    lv_label_set_text_static(slot->icon, slot->text);
-
-    /* Tag: restore the slot designator after a disconnect "X". */
-    lv_label_set_text_static(slot->tag, state.source == 0 ? "L" : "R");
-    lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
 }
 
 void battery_status_update_cb(struct battery_state state)
