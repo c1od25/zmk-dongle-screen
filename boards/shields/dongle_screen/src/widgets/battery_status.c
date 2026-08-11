@@ -627,6 +627,20 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
      * fallback to the halves' event-driven reports (user-tuned interval). */
     widget->poll_timer = lv_timer_create(battery_status_poll_cb, 30000, widget);
 
+    /* Seed every slot from the central cache so the boot state reflects real
+     * connection data instead of the init literals. Without this, slot 0 is
+     * rendered by the macro init below (source hardcoded to 0) while slot 1
+     * keeps its init text — asymmetric (e.g. slot 1 stuck on "R" after the
+     * previous fix only touched the init literal). */
+    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
+    {
+        uint8_t lvl;
+        if (zmk_split_central_get_peripheral_battery_level(i, &lvl) == 0 && lvl >= 1)
+        {
+            set_battery_symbol(NULL, (struct battery_state){.source = i, .level = lvl});
+        }
+    }
+
     widget_dongle_battery_status_init();
 
     return 0;
