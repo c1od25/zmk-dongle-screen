@@ -159,6 +159,12 @@ static void battery_anim_start(uint8_t source, int32_t target)
     struct battery_object *slot = &battery_objects[source];
     if (slot->bar == NULL) return;
 
+    /* Quantize the target to the same 10% grid used by the display before
+     * animating. Otherwise the overshoot path (up to ~4.5% above target)
+     * can cross into the next 10% bucket and the display would jump back
+     * when the animation settles (e.g. 84% -> shows 90 then 80). */
+    target = ((target + 5) / 10) * 10;
+
     int32_t start = lv_bar_get_value(slot->bar);
 
     if (start == target) {
@@ -173,7 +179,12 @@ static void battery_anim_start(uint8_t source, int32_t target)
     lv_anim_set_exec_cb(&a, battery_anim_exec_cb);
     lv_anim_set_values(&a, start, target);
     lv_anim_set_duration(&a, BAR_ANIM_MS);
-    lv_anim_set_path_cb(&a, target > start ? lv_anim_path_overshoot : lv_anim_path_ease_out);
+    /* Connect/wake from 0 uses ease-out: an overshoot on the full 0→X range
+     * (bezier peaks ~104.5%) crosses the 10% quantization bucket and renders
+     * as a fake one-shot spike (e.g. 70% then 60%). Keep overshoot only for
+     * small same-level adjustments where it stays inside the target bucket. */
+    lv_anim_set_path_cb(&a, (start > 0 && target > start) ? lv_anim_path_overshoot
+                                                          : lv_anim_path_ease_out);
     lv_anim_start(&a);
 }
 
@@ -642,7 +653,15 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
         }
     }
 
+    /* The macro init renders the CENTRAL (dongle) battery into source 0.
+     * In peripheral-only mode (DONGLE_BATTERY=n) slot 0 is peripheral #0, so
+     * skip it — injecting the dongle's own 100% (USB VDDH) pre-fills slot 0's
+     * bar, which changes its connect animation from a rise (overshoot) into a
+     * drain (ease-out) while slot 1 still rises: the observed L/R asymmetry.
+     * Only enable the macro init when slot 0 is genuinely the dongle. */
+#if IS_ENABLED(CONFIG_ZMK_DONGLE_DISPLAY_DONGLE_BATTERY)
     widget_dongle_battery_status_init();
+#endif
 
     return 0;
 }
