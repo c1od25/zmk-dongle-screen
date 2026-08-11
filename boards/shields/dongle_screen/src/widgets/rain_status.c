@@ -31,25 +31,24 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * ⌸ (Nerd Font U+EB04 gripper) sits at the two diagonal corners (top-left
  * and bottom-right) and lights up with its cell like every other glyph.
  * Portrait 4 rows x 23px = 92px exceeds the 82px showkey cell; the canvas
- * starts at Y=146 per user request (10px down from 136).
+ * starts at Y=141 per user request (5px up from 146).
  * ---------------------------------------------------------------------- */
 #define RAIN_ROWS 4
 #define RAIN_COLS 5
 #define RAIN_FRAME_MS 50
 
-#define RAIN_FADE_IN_MS 1500
+#define RAIN_FADE_IN_MS 5000
 #define RAIN_FADE_OUT_MS 250
 #define RAIN_GATE_POLL_MS 500
 /* Rain's own idle gate: 10s without a key press. Independent of the theme's
  * 30s sleep accent fade — rain can appear while the UI is still red. */
 #define RAIN_IDLE_TIMEOUT_MS 10000
 #define RAIN_GRIPPER "\U0000EB04"
-/* Gripper glyph (U+EB04, size 30) content is 10px tall — 71% of Mono_20's
- * 14px letter box, the conventional icon-to-text ratio; its adv_w is 18px
- * vs the letters' 12px but the glyph sits in the matrix corners (top-left /
- * bottom-right) where no neighbor is adjacent on the outer side. Shift it
- * down (14-10)/2 = 2px so its center matches the letters. */
-#define RAIN_GRIPPER_V_OFFSET 2
+/* Gripper glyph (U+EB04, size 26) content is 9px tall — 64% of Mono_20's
+ * 14px letter box, lighter than the 71% size-30 version per user review;
+ * its adv_w 15.6px vs letters' 12px is fine at the matrix corners. Shift it
+ * down (14-9)/2 = 2.5 -> 3px so its center matches the letters. */
+#define RAIN_GRIPPER_V_OFFSET 3
 
 /* Random-drop model: a drop is a brightness pulse that travels down one
  * column. Drops spawn at random times on random columns with random speeds
@@ -69,13 +68,13 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define RAIN_X 122 /* 60 + (200 - 75) / 2 */
 #define RAIN_Y 112
 #else
-/* 4 rows x 23px (20px row + 3px gap) = 92px. Y=146 (user: another 10px down
- * from 136); bottom at 238 overlaps the scanner cell at 226 — accepted. */
+/* 4 rows x 23px (20px row + 3px gap) = 92px. Y=141 (user: 5px up from 146);
+ * bottom at 233 overlaps the scanner cell at 226 — accepted. */
 #define RAIN_CELL_H 23
 #define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 92 */
 #define RAIN_X 82 /* 44 + (152 - 75) / 2 */
-#define RAIN_Y 146
+#define RAIN_Y 141
 #endif
 
 /* Base color matches the screen root background so the block blends in. */
