@@ -6,6 +6,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/random/random.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -21,79 +22,78 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
 /* -------------------------------------------------------------------------
- * Geometry
+ * Geometry — fixed 4x5 glyph matrix, column pitch 12px = Mono_20 adv_w, so
+ * glyphs abut with zero visual gap.
  *
- * The design's 3x11 "ERGOASTRA" diagonal grid (112x313) cannot fit the
- * showkey cell, so we render a dense window of it: 3 columns x RAIN_ROWS
- * rows, each column still one row lower than the previous (diagonal), with
- * a Mono_20 letter in every cell. Portrait and landscape use different
- * windows because the cells have very different aspect ratios. Every letter
- * is Mono_20 (~12x15px glyph, 21px line height) — clearly legible, and the
- * canvas sits fully inside the showkey cell, so nothing overlaps.
+ *   row0: E R G O .      row1: a s t r a
+ *   row2: e r g o .      row3: A S T R A
+ *
+ * A '.' cell is an empty slot (kept at base color). The canvas sits fully
+ * inside the showkey cell in both orientations.
  * ---------------------------------------------------------------------- */
-#define RAIN_WORD "ERGOASTRA"
-#define RAIN_WORD_LEN 9
-
-#define RAIN_COLS 3
-#define RAIN_FRAMES 60
+#define RAIN_ROWS 4
+#define RAIN_COLS 5
 #define RAIN_FRAME_MS 50
-#define RAIN_LUT_N 10 /* brightness levels, lerp(DARK, RED, i/9) */
 
 #define RAIN_FADE_IN_MS 1500
 #define RAIN_FADE_OUT_MS 250
 #define RAIN_GATE_POLL_MS 500
 
-/* Rain-drop model (design doc §2/§3.2): head advances 1 row per 3 frames,
- * 48 frames per drop, 3-row trail, fixed 60-frame schedule. */
-#define RAIN_ROW_STEPS 3
-#define RAIN_FALL 48
+/* Random-drop model: a drop is a brightness pulse that travels down one
+ * column. Drops spawn at random times on random columns with random speeds
+ * — no periodic schedule, no seamless-loop requirement. */
+#define RAIN_MAX_DROPS 6
+#define RAIN_SPAWN_CHANCE 40 /* percent per frame */
 #define RAIN_TRAIL_S 3
 
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-/* showkey cell (60,112) 200x56. 3 cols x 2 rows of the diagonal ERGOASTRA
- * grid; 56px column pitch spreads across the wide cell with even gaps. */
-#define RAIN_CELL_W 56
-#define RAIN_CELL_H 24
-#define RAIN_ROWS 2
-#define RAIN_ROW_OFFSET 2
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 168 */
-#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 48 */
-#define RAIN_X 76
-#define RAIN_Y 116
+/* showkey cell (60,112) 200x56. 5 cols x 12px = 60, 4 rows x 14px = 56.
+ * 14px row pitch trims ~1px off the Mono_20 glyph tops/bottoms so all 4
+ * matrix rows fit the 56px-tall cell. */
+#define RAIN_CELL_W 12
+#define RAIN_CELL_H 14
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 60 */
+#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 56 */
+#define RAIN_X 130
+#define RAIN_Y 112
 #else
-/* showkey cell (44,138) 152x82. 3 cols x 4 rows of the diagonal ERGOASTRA
- * grid; 40px column pitch = 3 columns spanning 120px, centered with even
- * 16px margins; 20px row pitch keeps Mono_20 glyphs legible. */
-#define RAIN_CELL_W 40
+/* showkey cell (44,138) 152x82. 5 cols x 12px = 60, 4 rows x 20px = 80. */
+#define RAIN_CELL_W 12
 #define RAIN_CELL_H 20
-#define RAIN_ROWS 4
-#define RAIN_ROW_OFFSET 3
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 120 */
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 60 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 80 */
-#define RAIN_X 60
+#define RAIN_X 90
 #define RAIN_Y 139
 #endif
 
-/* Strict palette — the only colors the animation may use. BASE matches the
- * screen root background (custom_status_screen.c 0x0a0a0d) so the rain block
- * blends with the rest of the UI instead of showing a gray panel. */
-#define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x0a, 0x0a, 0x0d)) /* 界面背景 */
-#define RAIN_COLOR_DARK ((lv_color_t)LV_COLOR_MAKE(0x5b, 0x1d, 0x1a)) /* 静止暗红 */
-#define RAIN_COLOR_RED ((lv_color_t)LV_COLOR_MAKE(0xef, 0x4d, 0x43))  /* 峰值红 */
+/* Base color matches the screen root background so the block blends in. */
+#define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x0a, 0x0a, 0x0d))
 
-/* Fixed per-column drop schedule (design §3.2): 0xFF = no second drop.
- * Gaps: col1 34, col2 23 (both >= 20); no two drops start on the same frame. */
-static const uint8_t rain_drops[RAIN_COLS][2] = {
-    {42, 0xFF},
-    {5, 39},
-    {22, 45},
+/* The 4x5 glyph matrix. A '\0' entry is an empty slot (base color). */
+static const char rain_matrix[RAIN_ROWS][RAIN_COLS] = {
+    {'E', 'R', 'G', 'O', '\0'},
+    {'a', 's', 't', 'r', 'a'},
+    {'e', 'r', 'g', 'o', '\0'},
+    {'A', 'S', 'T', 'R', 'A'},
 };
 
-static lv_color_t rain_lut[RAIN_LUT_N];
+/* Active drops. pos is the head position in rows (float, can exceed
+ * RAIN_ROWS-1 as it leaves the bottom); speed is rows per frame. */
+struct rain_drop
+{
+    bool active;
+    uint8_t col;
+    float pos;
+    float speed;
+};
+
+static struct rain_drop rain_drops[RAIN_MAX_DROPS];
+
+static lv_color_t rain_lut[10];
 /* Per-cell static text buffers: lv_draw_label defers rendering until
  * lv_canvas_finish_layer(), so every glyph needs its own storage — a single
  * shared buffer would render the last cell's character in every cell. */
-static char rain_chars[RAIN_COLS][RAIN_ROWS][2];
+static char rain_chars[RAIN_ROWS][RAIN_COLS][2];
 
 LV_DRAW_BUF_DEFINE_STATIC(rain_buf, RAIN_W, RAIN_H, LV_COLOR_FORMAT_RGB565);
 
@@ -106,38 +106,78 @@ static lv_color_t rain_lerp(lv_color_t a, lv_color_t b, uint8_t t)
     return c;
 }
 
-/* Column c, design row r, frame f -> brightness 0..255 (design §2.3). */
-static uint8_t rain_brightness(uint8_t c, uint8_t r, uint8_t f)
+/* Rebuild the 10-level LUT from the current theme accent: index 0 = dimmed
+ * accent (idle glyph), index 9 = full accent (drop head). Called on init and
+ * whenever the theme accent changes. */
+static void rain_rebuild_lut(void)
+{
+    lv_color_t accent = theme_accent_color();
+    lv_color_t dim = lv_color_darken(accent, 180); /* ~30% brightness */
+    for (uint8_t i = 0; i < 10; i++)
+    {
+        rain_lut[i] = rain_lerp(dim, accent, (uint8_t)(i * 255 / 9));
+    }
+}
+
+/* Spawn a new drop on a random column with a random speed, if a slot is free. */
+static void rain_spawn_drop(void)
+{
+    for (uint8_t i = 0; i < RAIN_MAX_DROPS; i++)
+    {
+        if (!rain_drops[i].active)
+        {
+            rain_drops[i].active = true;
+            rain_drops[i].col = sys_rand32_get() % RAIN_COLS;
+            rain_drops[i].pos = -1.0f;
+            rain_drops[i].speed = 0.04f + (float)(sys_rand32_get() % 30) / 1000.0f;
+            return;
+        }
+    }
+}
+
+/* Advance all drops by one frame; despawn those that left the bottom. */
+static void rain_advance_drops(void)
+{
+    for (uint8_t i = 0; i < RAIN_MAX_DROPS; i++)
+    {
+        if (!rain_drops[i].active)
+        {
+            continue;
+        }
+        rain_drops[i].pos += rain_drops[i].speed;
+        if (rain_drops[i].pos > RAIN_ROWS + RAIN_TRAIL_S)
+        {
+            rain_drops[i].active = false;
+        }
+    }
+}
+
+/* Brightness 0..255 for cell (row, col): max over drops in this column of
+ * the head/trail profile. */
+static uint8_t rain_brightness(uint8_t row, uint8_t col)
 {
     uint8_t best = 0;
 
-    for (uint8_t k = 0; k < 2; k++)
+    for (uint8_t i = 0; i < RAIN_MAX_DROPS; i++)
     {
-        uint8_t t0 = rain_drops[c][k];
-        if (t0 == 0xFF)
-        {
-            break;
-        }
-
-        int16_t age = (f - t0 + RAIN_FRAMES) % RAIN_FRAMES;
-        if (age >= RAIN_FALL)
+        if (!rain_drops[i].active || rain_drops[i].col != col)
         {
             continue;
         }
 
-        float pos = age / (float)RAIN_ROW_STEPS - 1.0f;
+        float p = rain_drops[i].pos;
         float b;
-        if (pos < r)
+        if (p < row)
         {
-            continue; /* head has not reached this row yet */
+            continue; /* head not reached this row yet */
         }
-        if (pos <= r + 1)
+        if (p <= row + 1)
         {
-            b = pos - r; /* arrival ramp 0 -> 1 */
+            b = p - row; /* arrival ramp 0 -> 1 */
         }
         else
         {
-            float d = pos - r - 1; /* trail decay */
+            float d = p - row - 1; /* trail decay */
             b = 1.0f - d / RAIN_TRAIL_S;
             if (b < 0.0f)
             {
@@ -156,7 +196,7 @@ static uint8_t rain_brightness(uint8_t c, uint8_t r, uint8_t f)
 
 /* Redraw the whole canvas for the current frame. LVGL-only code, runs on the
  * display thread (timer callback). Draw tasks are dispatched synchronously by
- * lv_canvas_finish_layer, so the static text buffer is safe. */
+ * lv_canvas_finish_layer, so the static text buffers are safe. */
 static void rain_draw_frame(struct zmk_widget_rain_status *widget)
 {
     lv_canvas_fill_bg(widget->obj, RAIN_COLOR_BASE, LV_OPA_COVER);
@@ -167,28 +207,27 @@ static void rain_draw_frame(struct zmk_widget_rain_status *widget)
     const int32_t line_h = lv_font_get_line_height(&Mono_20);
     const int32_t v_ofs = (RAIN_CELL_H - line_h) / 2;
 
-    for (uint8_t c = 0; c < RAIN_COLS; c++)
+    for (uint8_t r = 0; r < RAIN_ROWS; r++)
     {
-        for (uint8_t r = 0; r < RAIN_ROWS; r++)
+        for (uint8_t c = 0; c < RAIN_COLS; c++)
         {
-            uint8_t dr = r + RAIN_ROW_OFFSET; /* design-grid row */
-            int16_t gi = (int16_t)dr - (int16_t)c;
-            if (gi < 0 || gi >= RAIN_WORD_LEN)
+            char ch = rain_matrix[r][c];
+            if (ch == '\0')
             {
-                continue; /* empty corner -> stays base color (no gripper) */
+                continue; /* empty slot stays base color */
             }
 
-            uint8_t v = rain_brightness(c, dr, widget->frame);
-            lv_color_t color = rain_lut[((int)v * (RAIN_LUT_N - 1) + 127) / 255];
+            uint8_t v = rain_brightness(r, c);
+            lv_color_t color = rain_lut[v * 9 / 255];
 
-            rain_chars[c][r][0] = RAIN_WORD[gi];
-            rain_chars[c][r][1] = '\0';
+            rain_chars[r][c][0] = ch;
+            rain_chars[r][c][1] = '\0';
 
             lv_draw_label_dsc_t dsc;
             lv_draw_label_dsc_init(&dsc);
             dsc.font = &Mono_20;
             dsc.color = color;
-            dsc.text = rain_chars[c][r];
+            dsc.text = rain_chars[r][c];
             dsc.align = LV_TEXT_ALIGN_CENTER;
 
             lv_area_t area = {
@@ -202,11 +241,9 @@ static void rain_draw_frame(struct zmk_widget_rain_status *widget)
     }
 
     lv_canvas_finish_layer(widget->obj, &layer);
-    widget->frame = (widget->frame + 1) % RAIN_FRAMES;
 }
 
-/* Opacity fade on the canvas object (mirrors showkey_status's anim pattern:
- * anim var == user data == widget, so lv_anim_delete(widget, NULL) works). */
+/* Opacity fade on the canvas object (mirrors showkey_status's anim pattern). */
 static void rain_fade_exec_cb(void *var, int32_t v)
 {
     struct zmk_widget_rain_status *w = var;
@@ -264,12 +301,17 @@ static void rain_frame_cb(lv_timer_t *timer)
     {
         return;
     }
+
+    if ((sys_rand32_get() % 100) < RAIN_SPAWN_CHANCE)
+    {
+        rain_spawn_drop();
+    }
+    rain_advance_drops();
     rain_draw_frame(widget);
 }
 
-/* Gate: hidden rain waits until the keyboard is asleep (30s no key press —
- * theme_is_asleep(), by which time the showkey text has faded out long ago).
- * The extra key_pressed guard covers a key held across the 30s boundary. */
+/* Gate: hidden rain waits until the keyboard is asleep (theme_is_asleep(),
+ * by which time the showkey text has faded out long ago). */
 static void rain_gate_cb(lv_timer_t *timer)
 {
     struct zmk_widget_rain_status *widget = lv_timer_get_user_data(timer);
@@ -308,6 +350,12 @@ static void rain_status_update_cb(struct rain_status_state state)
     }
 }
 
+/* Rebuild the LUT when the theme accent fades (red <-> cyan). */
+static void rain_status_refresh(void)
+{
+    rain_rebuild_lut();
+}
+
 ZMK_DISPLAY_WIDGET_LISTENER(widget_rain_status, struct rain_status_state,
                             rain_status_update_cb, get_state)
 ZMK_SUBSCRIPTION(widget_rain_status, zmk_keycode_state_changed);
@@ -323,18 +371,12 @@ int zmk_widget_rain_status_init(struct zmk_widget_rain_status *widget, lv_obj_t 
     lv_obj_set_pos(widget->obj, RAIN_X, RAIN_Y);
     lv_obj_set_size(widget->obj, RAIN_W, RAIN_H);
 
-    /* Precompute the 10-level brightness LUT: lerp(0x5B1D1A, 0xEF4D43, i/9). */
-    for (uint8_t i = 0; i < RAIN_LUT_N; i++)
-    {
-        rain_lut[i] = rain_lerp(RAIN_COLOR_DARK, RAIN_COLOR_RED,
-                                (uint8_t)(i * 255 / (RAIN_LUT_N - 1)));
-    }
+    rain_rebuild_lut();
 
     LV_DRAW_BUF_INIT_STATIC(rain_buf);
     lv_canvas_set_draw_buf(widget->obj, &rain_buf);
     lv_canvas_fill_bg(widget->obj, RAIN_COLOR_BASE, LV_OPA_COVER);
 
-    widget->frame = 0;
     widget->visible = false;
     widget->key_pressed = false;
 
@@ -345,6 +387,8 @@ int zmk_widget_rain_status_init(struct zmk_widget_rain_status *widget, lv_obj_t 
     lv_obj_add_flag(widget->obj, LV_OBJ_FLAG_HIDDEN);
 
     sys_slist_append(&widgets, &widget->node);
+
+    theme_register_refresh(rain_status_refresh);
 
     widget_rain_status_init();
     return 0;

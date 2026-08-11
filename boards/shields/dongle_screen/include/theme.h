@@ -29,7 +29,7 @@
 #define THEME_FADE_MS     2000
 
 /* No key activity for this long → sleep mode (accent fades to cyan). */
-#define SLEEP_ACTIVITY_TIMEOUT_MS 30000
+#define SLEEP_ACTIVITY_TIMEOUT_MS 10000
 
 typedef void (*accent_refresh_cb_t)(void);
 
