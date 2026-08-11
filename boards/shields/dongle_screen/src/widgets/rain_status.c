@@ -123,12 +123,12 @@ static lv_color_t rain_lerp(lv_color_t a, lv_color_t b, uint8_t t)
 }
 
 /* Rebuild the 10-level LUT from the current theme accent: index 0 = dimmed
- * accent (idle glyph), index 9 = full accent (drop head). Called on init and
- * whenever the theme accent changes. */
+ * accent (idle glyph), index 9 = full accent (drop head). darken(100) keeps
+ * the idle glyph at ~55% brightness so the rain reads as clearly lit. */
 static void rain_rebuild_lut(void)
 {
     lv_color_t accent = theme_accent_color();
-    lv_color_t dim = lv_color_darken(accent, 180); /* ~30% brightness */
+    lv_color_t dim = lv_color_darken(accent, 100); /* ~55% brightness */
     for (uint8_t i = 0; i < 10; i++)
     {
         rain_lut[i] = rain_lerp(dim, accent, (uint8_t)(i * 255 / 9));

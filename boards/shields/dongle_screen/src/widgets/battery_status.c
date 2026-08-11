@@ -611,7 +611,10 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
     // Initialize peripheral tracking
     init_peripheral_tracking();
 
-    widget->poll_timer = lv_timer_create(battery_status_poll_cb, 1000, widget);
+    /* Poll the central's cached peripheral battery levels every 120s — the
+     * halves already report at CONFIG_ZMK_BATTERY_REPORT_INTERVAL=120, so a
+     * 1s poll was 120x more frequent than needed for a fallback. */
+    widget->poll_timer = lv_timer_create(battery_status_poll_cb, 120000, widget);
 
     widget_dongle_battery_status_init();
 
