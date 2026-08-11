@@ -22,8 +22,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
 /* -------------------------------------------------------------------------
- * Geometry — fixed 4x5 glyph matrix, column pitch 17px = Mono_28 adv_w
- * (269/16 ≈ 16.8px), so glyphs abut with zero visual gap.
+ * Geometry — fixed 4x5 glyph matrix, Mono_20 letters (adv_w 12px) with a
+ * 3px column gap, so CELL_W = 12 + 3 = 15px.
  *
  *   row0: E R G O ⌸      row1: a s t r a
  *   row2: e r g o ⌸      row3: A S T R A
@@ -51,25 +51,23 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define RAIN_SPAWN_CHANCE 30 /* percent per frame (drops are faster now) */
 #define RAIN_TRAIL_S 3
 
+/* Mono_20 adv_w = 192/16 = 12px; +3px gap = 15px column pitch. */
+#define RAIN_CELL_W 15
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-/* showkey cell (60,112) 200x56. 5 cols x 17px = 85, 4 rows x 14px = 56.
- * Mono_28's 30px line box exceeds the 14px row pitch, so landscape crops
- * glyph tops/bottoms — accepted here; portrait keeps glyphs near-complete. */
-#define RAIN_CELL_W 17
+/* showkey cell (60,112) 200x56. 5 cols x 15px = 75, 4 rows x 14px = 56.
+ * Mono_20 line box is 21px, so landscape crops 7px off each glyph. */
 #define RAIN_CELL_H 14
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 85 */
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 56 */
-#define RAIN_X 117 /* 60 + (200 - 85) / 2 */
+#define RAIN_X 122 /* 60 + (200 - 75) / 2 */
 #define RAIN_Y 112
 #else
-/* showkey cell (44,138) 152x82. 5 cols x 17px = 85, 4 rows x 20px = 80.
- * Mono_28 letter boxes are ~21px tall, so 20px rows keep them near-complete
- * (portrait is the completeness priority). */
-#define RAIN_CELL_W 17
+/* showkey cell (44,138) 152x82. 5 cols x 15px = 75, 4 rows x 20px = 80.
+ * Mono_20 glyphs (21px line box) fit a 20px row with a 1px trim. */
 #define RAIN_CELL_H 20
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 85 */
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 80 */
-#define RAIN_X 77 /* 44 + (152 - 85) / 2 */
+#define RAIN_X 82 /* 44 + (152 - 75) / 2 */
 #define RAIN_Y 139
 #endif
 
@@ -81,7 +79,7 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 static const char rain_gripper[] = RAIN_GRIPPER;
 
 /* The 4x5 glyph matrix. Gripper slots are fixed icons; every other cell is a
- * single letter rendered with Mono_28. */
+ * single letter rendered with Mono_20. */
 static const char *const rain_matrix[RAIN_ROWS][RAIN_COLS] = {
     {"E", "R", "G", "O", rain_gripper},
     {"a", "s", "t", "r", "a"},
@@ -222,7 +220,7 @@ static void rain_draw_frame(struct zmk_widget_rain_status *widget)
         {
             const char *text = rain_matrix[r][c];
             bool gripper = (text == rain_gripper);
-            const lv_font_t *font = gripper ? &Gripper_20 : &Mono_28;
+            const lv_font_t *font = gripper ? &Gripper_20 : &Mono_20;
 
             if (!gripper)
             {
@@ -246,9 +244,8 @@ static void rain_draw_frame(struct zmk_widget_rain_status *widget)
             dsc.align = LV_TEXT_ALIGN_CENTER;
 
             /* Label area = the cell; LVGL centers the glyph's line box inside
-             * it, so a 30px Mono_28 line in a 20px portrait cell starts 5px
-             * above the cell (rows overlap ~2px of letter box; landscape
-             * crops harder by design). */
+             * it, so a 21px Mono_20 line in a 20px portrait cell trims 1px
+             * (landscape's 14px rows crop harder by design). */
             lv_area_t area = {
                 .x1 = (lv_coord_t)(c * RAIN_CELL_W),
                 .y1 = (lv_coord_t)(r * RAIN_CELL_H),
