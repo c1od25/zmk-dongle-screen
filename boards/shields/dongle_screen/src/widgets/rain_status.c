@@ -25,14 +25,13 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * Geometry — fixed 4x5 glyph matrix, Mono_20 letters (adv_w 12px) with a
  * 3px column gap (CELL_W = 12 + 3 = 15px) and 3px row gap (CELL_H = 20 + 3).
  *
- *   row0: E R G O ⌸      row1: a s t r a
+ *   row0: ⌸ E R G O      row1: a s t r a
  *   row2: e r g o ⌸      row3: A S T R A
  *
- * ⌸ (Nerd Font U+EB04 gripper) fills the two empty slots and lights up with
- * its cell like every other glyph. Portrait 4 rows x 23px = 92px exceeds the
- * 82px showkey cell; the canvas starts at Y=126 so it stays clear of the
- * scanner cell below (226) while the top may overlap the mods row (50..132)
- * — accepted for now pending visual review.
+ * ⌸ (Nerd Font U+EB04 gripper) sits at the two diagonal corners (top-left
+ * and bottom-right) and lights up with its cell like every other glyph.
+ * Portrait 4 rows x 23px = 92px exceeds the 82px showkey cell; the canvas
+ * starts at Y=136 per user request (10px below the prior 126).
  * ---------------------------------------------------------------------- */
 #define RAIN_ROWS 4
 #define RAIN_COLS 5
@@ -45,9 +44,9 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * 30s sleep accent fade — rain can appear while the UI is still red. */
 #define RAIN_IDLE_TIMEOUT_MS 10000
 #define RAIN_GRIPPER "\U0000EB04"
-/* Gripper glyph (correct U+EB04, size 30) content is 10px tall in a 20px
- * line box vs Mono_20's 14px; shift down (14-10)/2 = 2px to center it. */
-#define RAIN_GRIPPER_V_OFFSET 2
+/* Gripper glyph (U+EB04, size 42) content is 13px tall vs Mono_20's 14px;
+ * shift down 1px so the two centers line up. */
+#define RAIN_GRIPPER_V_OFFSET 1
 
 /* Random-drop model: a drop is a brightness pulse that travels down one
  * column. Drops spawn at random times on random columns with random speeds
@@ -67,13 +66,13 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define RAIN_X 122 /* 60 + (200 - 75) / 2 */
 #define RAIN_Y 112
 #else
-/* 4 rows x 23px (20px row + 3px gap) = 92px. Y=126 keeps the bottom at 218,
- * above the scanner cell at 226. */
+/* 4 rows x 23px (20px row + 3px gap) = 92px. Y=136 (user: 10px down from
+ * 126); bottom at 228 just touches the scanner cell at 226 — accepted. */
 #define RAIN_CELL_H 23
 #define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 92 */
 #define RAIN_X 82 /* 44 + (152 - 75) / 2 */
-#define RAIN_Y 126
+#define RAIN_Y 136
 #endif
 
 /* Base color matches the screen root background so the block blends in. */
@@ -86,7 +85,7 @@ static const char rain_gripper[] = RAIN_GRIPPER;
 /* The 4x5 glyph matrix. Gripper slots are fixed icons; every other cell is a
  * single letter rendered with Mono_20. */
 static const char *const rain_matrix[RAIN_ROWS][RAIN_COLS] = {
-    {"E", "R", "G", "O", rain_gripper},
+    {rain_gripper, "E", "R", "G", "O"},
     {"a", "s", "t", "r", "a"},
     {"e", "r", "g", "o", rain_gripper},
     {"A", "S", "T", "R", "A"},
