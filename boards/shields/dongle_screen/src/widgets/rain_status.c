@@ -33,7 +33,6 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * Portrait 4 rows x 23px = 92px exceeds the 82px showkey cell; the canvas
  * starts at Y=141 per user request (5px up from 146).
  * ---------------------------------------------------------------------- */
-#define RAIN_ROWS 4
 #define RAIN_COLS 5
 #define RAIN_FRAME_MS 50
 
@@ -60,16 +59,21 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 /* Mono_20 adv_w = 192/16 = 12px; +3px gap = 15px column pitch. */
 #define RAIN_CELL_W 15
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-/* showkey cell (60,112) 200x56. 5 cols x 15px = 75, 4 rows x 14px = 56.
- * Landscape cannot fit a 3px row gap (4 x 17 = 68 > 56), so rows abut. */
-#define RAIN_CELL_H 14
+/* Landscape showkey cell (60,112) 200x56 cannot fit 4 rows at the portrait
+ * 23px pitch (4x23=92 > 56), so use 3 rows — same row/col spacing as
+ * portrait (23px pitch, 3px gap), losing only the bottom "A S T R A" row.
+ * Canvas bottom 181 overlaps the lower wpm/scanner cell (174) by 7px,
+ * mirroring portrait's accepted 7px overlap. */
+#define RAIN_ROWS 3
+#define RAIN_CELL_H 23
 #define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
-#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 56 */
+#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 69 */
 #define RAIN_X 122 /* 60 + (200 - 75) / 2 */
 #define RAIN_Y 112
 #else
 /* 4 rows x 23px (20px row + 3px gap) = 92px. Y=141 (user: 5px up from 146);
  * bottom at 233 overlaps the scanner cell at 226 — accepted. */
+#define RAIN_ROWS 4
 #define RAIN_CELL_H 23
 #define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 92 */
@@ -84,14 +88,23 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * by pointer identity so the draw loop can pick the icon font per cell. */
 static const char rain_gripper[] = RAIN_GRIPPER;
 
-/* The 4x5 glyph matrix. Gripper slots are fixed icons; every other cell is a
- * single letter rendered with Mono_20. */
+/* The glyph matrix. Gripper slots are fixed icons; every other cell is a
+ * single letter rendered with Mono_20. Landscape drops the bottom row to
+ * keep the portrait 23px row pitch. */
+#if CONFIG_DONGLE_SCREEN_HORIZONTAL
+static const char *const rain_matrix[RAIN_ROWS][RAIN_COLS] = {
+    {rain_gripper, "E", "R", "G", "O"},
+    {"a", "s", "t", "r", "a"},
+    {"e", "r", "g", "o", rain_gripper},
+};
+#else
 static const char *const rain_matrix[RAIN_ROWS][RAIN_COLS] = {
     {rain_gripper, "E", "R", "G", "O"},
     {"a", "s", "t", "r", "a"},
     {"e", "r", "g", "o", rain_gripper},
     {"A", "S", "T", "R", "A"},
 };
+#endif
 
 /* Active drops. pos is the head position in rows (float, can exceed
  * RAIN_ROWS-1 as it leaves the bottom); speed is rows per frame. */

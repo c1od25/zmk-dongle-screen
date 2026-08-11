@@ -41,9 +41,10 @@ enum showkey_kind
 struct showkey_lookup
 {
     enum showkey_kind kind;
-    const char *side; /* "L"/"R" for SHOWKEY_SIDE_ICON */
-    const char *icon; /* Nerd Font PUA glyph */
-    const char *text; /* Mono_48 name */
+    const char *side;       /* "L"/"R" for SHOWKEY_SIDE_ICON */
+    const char *icon;       /* Nerd Font PUA glyph */
+    const char *text;       /* Mono_48 name */
+    const lv_font_t *font;  /* icon font; NULL = NerdFonts_Regular_48 */
 };
 
 /* Nerd Font PUA glyphs — codepoints verified against nerd-fonts-generated.css
@@ -62,6 +63,8 @@ struct showkey_lookup
 #define ICON_TAB   "\U000F0312" /* nf-md-keyboard_tab */
 #define ICON_ESC   "\U000F12B7" /* nf-md-keyboard_esc */
 #define ICON_CAPS  "\U000F030E" /* nf-md-keyboard_caps */
+#define ICON_VOL_UP "\U000F05A1" /* nf-md-volume_plus — encoder wheel up */
+#define ICON_VOL_DN "\U000F05A0" /* nf-md-volume_minus — encoder wheel down */
 
 /* HID usage (keyboard page 0x07) → icon (with optional L/R side prefix). */
 static const struct key_icon
@@ -143,18 +146,20 @@ static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycod
 
     if (usage_page == HID_USAGE_CONSUMER)
     {
-        /* Consumer-page keys (encoder volume wheel): show an arrow icon —
-         * NerdFonts_Regular_48 only embeds 14 glyphs (mods/arrows/special),
-         * volume glyphs aren't in it, so reuse the up/down arrows that are. */
+        /* Consumer-page keys (encoder volume wheel): nf-md-volume_plus/minus.
+         * These live in the dedicated Volume_48 font (they aren't among the
+         * 14 glyphs embedded in NerdFonts_Regular_48). */
         switch (u)
         {
         case HID_USAGE_CONSUMER_VOLUME_INCREMENT:
             r.kind = SHOWKEY_ICON;
-            r.icon = ICON_UP;
+            r.icon = ICON_VOL_UP;
+            r.font = &Volume_48;
             return r;
         case HID_USAGE_CONSUMER_VOLUME_DECREMENT:
             r.kind = SHOWKEY_ICON;
-            r.icon = ICON_DOWN;
+            r.icon = ICON_VOL_DN;
+            r.font = &Volume_48;
             return r;
         default:
             return r;
@@ -297,6 +302,10 @@ static void showkey_apply(struct zmk_widget_showkey_status *widget, struct showk
     {
         lv_label_set_text_static(widget->label, r->side != NULL ? r->side : "");
         lv_label_set_text_static(widget->icon_label, r->icon != NULL ? r->icon : "");
+        /* Volume icons use their own font; everything else uses the default. */
+        lv_obj_set_style_text_font(widget->icon_label,
+                                   r->font != NULL ? r->font : &NerdFonts_Regular_48,
+                                   LV_PART_MAIN);
     }
     showkey_align(widget, r);
 }
