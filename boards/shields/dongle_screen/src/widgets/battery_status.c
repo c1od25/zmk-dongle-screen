@@ -596,16 +596,18 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
                      BATTERY_ICON_Y);
         lv_label_set_text_static(icon, "--");
 
-        /* Slot designator tag ("L" / "R"). Bottom-relative alignment puts the
-         * tag bottom exactly on the WPM value bottom (portrait 305, landscape
-         * 227) regardless of font line-height — TOP_MID absolute Y drifted
-         * because Mono_20 line-height != assumed 30px. Mono_20 both orients. */
+        /* Slot designator tag. Starts as "X" (not-connected) — battery_display
+         * render flips it to "L"/"R" once a level arrives. Initializing to
+         * "L"/"R" here would show a half as present even if it never connects
+         * (e.g. its power is off), which is misleading. Bottom-relative
+         * alignment puts the tag bottom exactly on the WPM value bottom
+         * (portrait 305, landscape 227) regardless of font line-height. */
         lv_obj_t *tag = lv_label_create(widget->obj);
         lv_obj_set_style_text_font(tag, &Mono_20, 0);
         lv_obj_set_style_text_color(tag, lv_color_hex(0x9a9aa5), 0);
         lv_obj_align(tag, LV_ALIGN_BOTTOM_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
                      BATTERY_TAG_BOTTOM_OFF);
-        lv_label_set_text_static(tag, i == 0 ? "L" : "R");
+        lv_label_set_text_static(tag, "X");
 
         battery_objects[i] = (struct battery_object){
             .icon = icon,
