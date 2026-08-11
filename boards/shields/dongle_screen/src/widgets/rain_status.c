@@ -23,16 +23,16 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
 /* -------------------------------------------------------------------------
  * Geometry — fixed 4x5 glyph matrix, Mono_20 letters (adv_w 12px) with a
- * 3px column gap (CELL_W = 12 + 3 = 15px) and 3px row gap in portrait
- * (CELL_H = letter box 14 + 3). Landscape keeps CELL_H=14 because the
- * 200x56 showkey cell cannot fit 4 rows at 17px.
+ * 3px column gap (CELL_W = 12 + 3 = 15px) and 3px row gap (CELL_H = 20 + 3).
  *
  *   row0: E R G O ⌸      row1: a s t r a
  *   row2: e r g o ⌸      row3: A S T R A
  *
  * ⌸ (Nerd Font U+EB04 gripper) fills the two empty slots and lights up with
- * its cell like every other glyph. The canvas sits fully inside the showkey
- * cell in both orientations.
+ * its cell like every other glyph. Portrait 4 rows x 23px = 92px exceeds the
+ * 82px showkey cell; the canvas starts at Y=126 so it stays clear of the
+ * scanner cell below (226) while the top may overlap the mods row (50..132)
+ * — accepted for now pending visual review.
  * ---------------------------------------------------------------------- */
 #define RAIN_ROWS 4
 #define RAIN_COLS 5
@@ -45,9 +45,9 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * 30s sleep accent fade — rain can appear while the UI is still red. */
 #define RAIN_IDLE_TIMEOUT_MS 10000
 #define RAIN_GRIPPER "\U0000EB04"
-/* Gripper glyph content is 16px tall (size-22 font) vs Mono_20's 14px box;
- * shift it down 1px so the two centers line up. */
-#define RAIN_GRIPPER_V_OFFSET 1
+/* Gripper glyph (correct U+EB04, size 30) content is 10px tall in a 20px
+ * line box vs Mono_20's 14px; shift down (14-10)/2 = 2px to center it. */
+#define RAIN_GRIPPER_V_OFFSET 2
 
 /* Random-drop model: a drop is a brightness pulse that travels down one
  * column. Drops spawn at random times on random columns with random speeds
@@ -67,13 +67,13 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define RAIN_X 122 /* 60 + (200 - 75) / 2 */
 #define RAIN_Y 112
 #else
-/* showkey cell (44,138) 152x82. 5 cols x 15px = 75, 4 rows x 17px = 68
- * (letter box 14 + 3px row gap), centered in the 82px-tall cell. */
-#define RAIN_CELL_H 17
+/* 4 rows x 23px (20px row + 3px gap) = 92px. Y=126 keeps the bottom at 218,
+ * above the scanner cell at 226. */
+#define RAIN_CELL_H 23
 #define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
-#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 68 */
+#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 92 */
 #define RAIN_X 82 /* 44 + (152 - 75) / 2 */
-#define RAIN_Y 146 /* 138 + (82 - 68) / 2 */
+#define RAIN_Y 126
 #endif
 
 /* Base color matches the screen root background so the block blends in. */
