@@ -50,33 +50,36 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define RAIN_TRAIL_S 3
 
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-/* showkey cell (60,112) 200x56 -> 132x48 canvas centered. 2 rows show design
- * rows 2..3: G,O / R,G / E,R — dense diagonal window at 44px column pitch. */
-#define RAIN_CELL_W 44
+/* showkey cell (60,112) 200x56. 3 cols x 2 rows of the diagonal ERGOASTRA
+ * grid; 56px column pitch spreads across the wide cell with even gaps. */
+#define RAIN_CELL_W 56
 #define RAIN_CELL_H 24
 #define RAIN_ROWS 2
 #define RAIN_ROW_OFFSET 2
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 132 */
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 168 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 48 */
-#define RAIN_X 94
+#define RAIN_X 76
 #define RAIN_Y 116
 #else
-/* showkey cell (44,138) 152x82 -> 96x80 canvas centered. 4 rows show design
- * rows 3..6: O,A,S,T / G,O,A,S / R,G,O,A — 32px column pitch. */
-#define RAIN_CELL_W 32
+/* showkey cell (44,138) 152x82. 3 cols x 4 rows of the diagonal ERGOASTRA
+ * grid; 40px column pitch = 3 columns spanning 120px, centered with even
+ * 16px margins; 20px row pitch keeps Mono_20 glyphs legible. */
+#define RAIN_CELL_W 40
 #define RAIN_CELL_H 20
 #define RAIN_ROWS 4
 #define RAIN_ROW_OFFSET 3
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 96 */
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 120 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 80 */
-#define RAIN_X 72
+#define RAIN_X 60
 #define RAIN_Y 139
 #endif
 
-/* Strict palette (design §1.2) — the only colors the animation may use. */
-#define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x38, 0x38, 0x42)) /* 底衬 */
-#define RAIN_COLOR_DARK ((lv_color_t)LV_COLOR_MAKE(0x5b, 0x1d, 0x1a)) /* 静止 */
-#define RAIN_COLOR_RED ((lv_color_t)LV_COLOR_MAKE(0xef, 0x4d, 0x43))  /* 峰值 */
+/* Strict palette — the only colors the animation may use. BASE matches the
+ * screen root background (custom_status_screen.c 0x0a0a0d) so the rain block
+ * blends with the rest of the UI instead of showing a gray panel. */
+#define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x0a, 0x0a, 0x0d)) /* 界面背景 */
+#define RAIN_COLOR_DARK ((lv_color_t)LV_COLOR_MAKE(0x5b, 0x1d, 0x1a)) /* 静止暗红 */
+#define RAIN_COLOR_RED ((lv_color_t)LV_COLOR_MAKE(0xef, 0x4d, 0x43))  /* 峰值红 */
 
 /* Fixed per-column drop schedule (design §3.2): 0xFF = no second drop.
  * Gaps: col1 34, col2 23 (both >= 20); no two drops start on the same frame. */
@@ -87,7 +90,10 @@ static const uint8_t rain_drops[RAIN_COLS][2] = {
 };
 
 static lv_color_t rain_lut[RAIN_LUT_N];
-static char rain_char[2]; /* static: lv_draw_label stores the text pointer */
+/* Per-cell static text buffers: lv_draw_label defers rendering until
+ * lv_canvas_finish_layer(), so every glyph needs its own storage — a single
+ * shared buffer would render the last cell's character in every cell. */
+static char rain_chars[RAIN_COLS][RAIN_ROWS][2];
 
 LV_DRAW_BUF_DEFINE_STATIC(rain_buf, RAIN_W, RAIN_H, LV_COLOR_FORMAT_RGB565);
 
@@ -175,14 +181,14 @@ static void rain_draw_frame(struct zmk_widget_rain_status *widget)
             uint8_t v = rain_brightness(c, dr, widget->frame);
             lv_color_t color = rain_lut[((int)v * (RAIN_LUT_N - 1) + 127) / 255];
 
-            rain_char[0] = RAIN_WORD[gi];
-            rain_char[1] = '\0';
+            rain_chars[c][r][0] = RAIN_WORD[gi];
+            rain_chars[c][r][1] = '\0';
 
             lv_draw_label_dsc_t dsc;
             lv_draw_label_dsc_init(&dsc);
             dsc.font = &Mono_20;
             dsc.color = color;
-            dsc.text = rain_char;
+            dsc.text = rain_chars[c][r];
             dsc.align = LV_TEXT_ALIGN_CENTER;
 
             lv_area_t area = {
