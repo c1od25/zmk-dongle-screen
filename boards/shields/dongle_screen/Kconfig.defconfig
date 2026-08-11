@@ -193,6 +193,15 @@ config DONGLE_SCREEN_SHOWKEY_ACTIVE
     help
       If the showkey widget should be active or not
 
+config DONGLE_SCREEN_RAIN_ACTIVE
+    bool "Code-rain idle background animation active"
+    default y
+    help
+      Code-rain animation in the showkey cell. Fades in (1.5s) while the
+      showkey text is empty and the keyboard is asleep (30s without a key
+      press), and fades out fast (250ms) on the next key press so showkey
+      takes over. Independent of the WPM/SCANNER/GIF mutual-exclusion chain.
+
 config DONGLE_SCREEN_SLEEP_ACTIVE
     bool "Sleep status widget active"
     default y

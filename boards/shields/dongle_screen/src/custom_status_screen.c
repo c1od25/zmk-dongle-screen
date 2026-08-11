@@ -47,6 +47,11 @@ static struct zmk_widget_mod_status mod_widget;
 static struct zmk_widget_showkey_status showkey_status_widget;
 #endif
 
+#if CONFIG_DONGLE_SCREEN_RAIN_ACTIVE
+#include "widgets/rain_status.h"
+static struct zmk_widget_rain_status rain_status_widget;
+#endif
+
 #if CONFIG_DONGLE_SCREEN_SLEEP_ACTIVE
 #include "sleep_status.h"
 static struct zmk_widget_sleep_status sleep_status_widget;
@@ -178,6 +183,13 @@ lv_obj_t *zmk_display_status_screen()
 
 #if CONFIG_DONGLE_SCREEN_SHOWKEY_ACTIVE
     zmk_widget_showkey_status_init(&showkey_status_widget, screen);
+#endif
+
+#if CONFIG_DONGLE_SCREEN_RAIN_ACTIVE
+    /* Rain animation in the showkey cell. Created after showkey: it only
+     * fades in while showkey is empty and the keyboard is asleep, so the two
+     * never show text at the same time. */
+    zmk_widget_rain_status_init(&rain_status_widget, screen);
 #endif
 
 #if CONFIG_DONGLE_SCREEN_WPM_ACTIVE
