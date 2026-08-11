@@ -13,6 +13,7 @@
 #include <zmk/events/keycode_state_changed.h>
 #include <zmk/hid.h>
 #include <dt-bindings/zmk/hid_usage_pages.h>
+#include <dt-bindings/zmk/hid_usage.h>
 #include <dt-bindings/zmk/modifiers.h>
 
 #include "showkey_status.h"
@@ -61,6 +62,8 @@ struct showkey_lookup
 #define ICON_TAB   "\U000F0312" /* nf-md-keyboard_tab */
 #define ICON_ESC   "\U000F12B7" /* nf-md-keyboard_esc */
 #define ICON_CAPS  "\U000F030E" /* nf-md-keyboard_caps */
+#define ICON_VOL_UP "\U000F0584" /* nf-md-volume_high — encoder wheel up */
+#define ICON_VOL_DN "\U000F0588" /* nf-md-volume_low — encoder wheel down */
 
 /* HID usage (keyboard page 0x07) → icon (with optional L/R side prefix). */
 static const struct key_icon
@@ -139,6 +142,26 @@ static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycod
 {
     struct showkey_lookup r = {.kind = SHOWKEY_TEXT, .text = NULL};
     uint32_t u = keycode;
+
+    if (usage_page == HID_USAGE_CONSUMER)
+    {
+        /* Consumer-page keys (encoder volume wheel, media keys): show a
+         * Nerd Font icon. The encoder binds to C_VOL_UP (0xE9) / C_VOL_DN
+         * (0xEA) which were previously falling through to the "KEY" text. */
+        switch (u)
+        {
+        case HID_USAGE_CONSUMER_VOLUME_INCREMENT:
+            r.kind = SHOWKEY_ICON;
+            r.icon = ICON_VOL_UP;
+            return r;
+        case HID_USAGE_CONSUMER_VOLUME_DECREMENT:
+            r.kind = SHOWKEY_ICON;
+            r.icon = ICON_VOL_DN;
+            return r;
+        default:
+            return r;
+        }
+    }
 
     if (usage_page != HID_USAGE_KEY)
     {

@@ -57,6 +57,11 @@ static struct zmk_widget_rain_status rain_status_widget;
 static struct zmk_widget_sleep_status sleep_status_widget;
 #endif
 
+#if CONFIG_DONGLE_SCREEN_SPLASH
+#include "widgets/splash_status.h"
+static struct zmk_widget_splash_status splash_status_widget;
+#endif
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -206,6 +211,11 @@ lv_obj_t *zmk_display_status_screen()
 
 #if CONFIG_DONGLE_SCREEN_MEM_DEBUG
     lv_timer_create(mem_debug_timer_cb, 10000, NULL);
+#endif
+
+#if CONFIG_DONGLE_SCREEN_SPLASH
+    /* Boot splash last so it covers every widget; fades out after a hold. */
+    zmk_widget_splash_status_init(&splash_status_widget, screen);
 #endif
 
     return screen;

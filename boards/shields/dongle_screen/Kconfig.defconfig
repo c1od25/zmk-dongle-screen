@@ -193,6 +193,13 @@ config DONGLE_SCREEN_SHOWKEY_ACTIVE
     help
       If the showkey widget should be active or not
 
+config DONGLE_SCREEN_SPLASH
+    bool "Boot splash overlay active"
+    default y
+    help
+      Full-screen ErgoAstra splash shown on boot: logo + title + subtitle,
+      held briefly then faded out to reveal the main status screen.
+
 config DONGLE_SCREEN_RAIN_ACTIVE
     bool "Code-rain idle background animation active"
     default y
