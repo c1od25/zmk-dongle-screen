@@ -28,8 +28,10 @@
 #define THEME_ACCENT_CYAN ((lv_color_t)LV_COLOR_MAKE(0x30, 0xc6, 0xd9))
 #define THEME_FADE_MS     2000
 
-/* No key activity for this long → sleep mode (accent fades to cyan). */
-#define SLEEP_ACTIVITY_TIMEOUT_MS 10000
+/* No key activity for this long → sleep mode (accent fades to cyan). The
+ * code-rain widget uses its own independent 10s idle timer, so rain can
+ * appear without triggering the whole-UI sleep accent fade. */
+#define SLEEP_ACTIVITY_TIMEOUT_MS 30000
 
 typedef void (*accent_refresh_cb_t)(void);
 

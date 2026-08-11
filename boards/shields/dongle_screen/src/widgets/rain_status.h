@@ -11,11 +11,12 @@
 
 /* Code-rain idle background animation in the showkey cell.
  *
- * Fades in (1.5s) while the keyboard is asleep — 10s without a key press
- * (theme_is_asleep()), by which time the showkey text has long faded out —
- * and fades back out fast (250ms) on the next key press so showkey takes
- * over. Drives a small RGB565 canvas at 20fps with randomly spawned drops
- * (random column / speed / timing — no periodic schedule or loop). */
+ * Fades in (1.5s) after 10s without a key press, using its own idle timer —
+ * deliberately decoupled from the theme's 30s sleep accent fade, so code
+ * rain appears while the accent is still red. Fades back out fast (250ms)
+ * on the next key press so showkey takes over. Drives a small RGB565 canvas
+ * at 20fps with randomly spawned drops (random column / speed / timing — no
+ * periodic schedule or loop). */
 struct zmk_widget_rain_status
 {
     sys_snode_t node;
@@ -24,6 +25,7 @@ struct zmk_widget_rain_status
     lv_timer_t *gate_timer; /* 500ms fade-in gate poll (always running) */
     bool visible;          /* animation active (fading in/out or running) */
     bool key_pressed;      /* a key is currently held */
+    int64_t last_activity_ms; /* k_uptime_get() of the last key press */
 };
 
 int zmk_widget_rain_status_init(struct zmk_widget_rain_status *widget, lv_obj_t *parent);

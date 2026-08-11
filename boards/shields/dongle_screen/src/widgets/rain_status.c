@@ -22,14 +22,15 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
 /* -------------------------------------------------------------------------
- * Geometry — fixed 4x5 glyph matrix, column pitch 12px = Mono_20 adv_w, so
- * glyphs abut with zero visual gap.
+ * Geometry — fixed 4x5 glyph matrix, column pitch 17px = Mono_28 adv_w
+ * (269/16 ≈ 16.8px), so glyphs abut with zero visual gap.
  *
- *   row0: E R G O .      row1: a s t r a
- *   row2: e r g o .      row3: A S T R A
+ *   row0: E R G O ⌸      row1: a s t r a
+ *   row2: e r g o ⌸      row3: A S T R A
  *
- * A '.' cell is an empty slot (kept at base color). The canvas sits fully
- * inside the showkey cell in both orientations.
+ * ⌸ (Nerd Font U+EB04 gripper) fills the two empty slots and lights up with
+ * its cell like every other glyph. The canvas sits fully inside the showkey
+ * cell in both orientations.
  * ---------------------------------------------------------------------- */
 #define RAIN_ROWS 4
 #define RAIN_COLS 5
@@ -38,43 +39,54 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define RAIN_FADE_IN_MS 1500
 #define RAIN_FADE_OUT_MS 250
 #define RAIN_GATE_POLL_MS 500
+/* Rain's own idle gate: 10s without a key press. Independent of the theme's
+ * 30s sleep accent fade — rain can appear while the UI is still red. */
+#define RAIN_IDLE_TIMEOUT_MS 10000
+#define RAIN_GRIPPER "\U0000EB04"
 
 /* Random-drop model: a drop is a brightness pulse that travels down one
  * column. Drops spawn at random times on random columns with random speeds
  * — no periodic schedule, no seamless-loop requirement. */
 #define RAIN_MAX_DROPS 6
-#define RAIN_SPAWN_CHANCE 40 /* percent per frame */
+#define RAIN_SPAWN_CHANCE 30 /* percent per frame (drops are faster now) */
 #define RAIN_TRAIL_S 3
 
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-/* showkey cell (60,112) 200x56. 5 cols x 12px = 60, 4 rows x 14px = 56.
- * 14px row pitch trims ~1px off the Mono_20 glyph tops/bottoms so all 4
- * matrix rows fit the 56px-tall cell. */
-#define RAIN_CELL_W 12
+/* showkey cell (60,112) 200x56. 5 cols x 17px = 85, 4 rows x 14px = 56.
+ * Mono_28's 30px line box exceeds the 14px row pitch, so landscape crops
+ * glyph tops/bottoms — accepted here; portrait keeps glyphs near-complete. */
+#define RAIN_CELL_W 17
 #define RAIN_CELL_H 14
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 60 */
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 85 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 56 */
-#define RAIN_X 130
+#define RAIN_X 117 /* 60 + (200 - 85) / 2 */
 #define RAIN_Y 112
 #else
-/* showkey cell (44,138) 152x82. 5 cols x 12px = 60, 4 rows x 20px = 80. */
-#define RAIN_CELL_W 12
+/* showkey cell (44,138) 152x82. 5 cols x 17px = 85, 4 rows x 20px = 80.
+ * Mono_28 letter boxes are ~21px tall, so 20px rows keep them near-complete
+ * (portrait is the completeness priority). */
+#define RAIN_CELL_W 17
 #define RAIN_CELL_H 20
-#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 60 */
+#define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 85 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 80 */
-#define RAIN_X 90
+#define RAIN_X 77 /* 44 + (152 - 85) / 2 */
 #define RAIN_Y 139
 #endif
 
 /* Base color matches the screen root background so the block blends in. */
 #define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x0a, 0x0a, 0x0d))
 
-/* The 4x5 glyph matrix. A '\0' entry is an empty slot (base color). */
-static const char rain_matrix[RAIN_ROWS][RAIN_COLS] = {
-    {'E', 'R', 'G', 'O', '\0'},
-    {'a', 's', 't', 'r', 'a'},
-    {'e', 'r', 'g', 'o', '\0'},
-    {'A', 'S', 'T', 'R', 'A'},
+/* Fixed gripper glyph string (U+EB04). Stored once; the matrix references it
+ * by pointer identity so the draw loop can pick the icon font per cell. */
+static const char rain_gripper[] = RAIN_GRIPPER;
+
+/* The 4x5 glyph matrix. Gripper slots are fixed icons; every other cell is a
+ * single letter rendered with Mono_28. */
+static const char *const rain_matrix[RAIN_ROWS][RAIN_COLS] = {
+    {"E", "R", "G", "O", rain_gripper},
+    {"a", "s", "t", "r", "a"},
+    {"e", "r", "g", "o", rain_gripper},
+    {"A", "S", "T", "R", "A"},
 };
 
 /* Active drops. pos is the head position in rows (float, can exceed
@@ -129,7 +141,7 @@ static void rain_spawn_drop(void)
             rain_drops[i].active = true;
             rain_drops[i].col = sys_rand32_get() % RAIN_COLS;
             rain_drops[i].pos = -1.0f;
-            rain_drops[i].speed = 0.04f + (float)(sys_rand32_get() % 30) / 1000.0f;
+            rain_drops[i].speed = 0.12f + (float)(sys_rand32_get() % 80) / 1000.0f;
             return;
         }
     }
@@ -204,37 +216,44 @@ static void rain_draw_frame(struct zmk_widget_rain_status *widget)
     lv_layer_t layer;
     lv_canvas_init_layer(widget->obj, &layer);
 
-    const int32_t line_h = lv_font_get_line_height(&Mono_20);
-    const int32_t v_ofs = (RAIN_CELL_H - line_h) / 2;
-
     for (uint8_t r = 0; r < RAIN_ROWS; r++)
     {
         for (uint8_t c = 0; c < RAIN_COLS; c++)
         {
-            char ch = rain_matrix[r][c];
-            if (ch == '\0')
+            const char *text = rain_matrix[r][c];
+            bool gripper = (text == rain_gripper);
+            const lv_font_t *font = gripper ? &Gripper_20 : &Mono_28;
+
+            if (!gripper)
             {
-                continue; /* empty slot stays base color */
+                /* Per-cell storage: lv_draw_label defers rendering until
+                 * lv_canvas_finish_layer(), so a single shared buffer would
+                 * render the last cell's character in every cell. The fixed
+                 * gripper string is static and needs no copy. */
+                rain_chars[r][c][0] = text[0];
+                rain_chars[r][c][1] = '\0';
+                text = rain_chars[r][c];
             }
 
             uint8_t v = rain_brightness(r, c);
             lv_color_t color = rain_lut[v * 9 / 255];
 
-            rain_chars[r][c][0] = ch;
-            rain_chars[r][c][1] = '\0';
-
             lv_draw_label_dsc_t dsc;
             lv_draw_label_dsc_init(&dsc);
-            dsc.font = &Mono_20;
+            dsc.font = font;
             dsc.color = color;
-            dsc.text = rain_chars[r][c];
+            dsc.text = text;
             dsc.align = LV_TEXT_ALIGN_CENTER;
 
+            /* Label area = the cell; LVGL centers the glyph's line box inside
+             * it, so a 30px Mono_28 line in a 20px portrait cell starts 5px
+             * above the cell (rows overlap ~2px of letter box; landscape
+             * crops harder by design). */
             lv_area_t area = {
                 .x1 = (lv_coord_t)(c * RAIN_CELL_W),
-                .y1 = (lv_coord_t)(r * RAIN_CELL_H + v_ofs),
+                .y1 = (lv_coord_t)(r * RAIN_CELL_H),
                 .x2 = (lv_coord_t)(c * RAIN_CELL_W + RAIN_CELL_W - 1),
-                .y2 = (lv_coord_t)MIN(r * RAIN_CELL_H + v_ofs + line_h - 1, RAIN_H - 1),
+                .y2 = (lv_coord_t)MIN(r * RAIN_CELL_H + RAIN_CELL_H - 1, RAIN_H - 1),
             };
             lv_draw_label(&layer, &dsc, &area);
         }
@@ -310,16 +329,17 @@ static void rain_frame_cb(lv_timer_t *timer)
     rain_draw_frame(widget);
 }
 
-/* Gate: hidden rain waits until the keyboard is asleep (theme_is_asleep(),
- * by which time the showkey text has faded out long ago). */
+/* Gate: hidden rain fades in 10s after the last key press. Rain has its own
+ * idle timer and does not consult the theme sleep state (30s), so the two
+ * timers stay decoupled. */
 static void rain_gate_cb(lv_timer_t *timer)
 {
     struct zmk_widget_rain_status *widget = lv_timer_get_user_data(timer);
-    if (widget->visible)
+    if (widget->visible || widget->key_pressed)
     {
         return;
     }
-    if (theme_is_asleep() && !widget->key_pressed)
+    if (k_uptime_get() - widget->last_activity_ms > RAIN_IDLE_TIMEOUT_MS)
     {
         rain_start_fade_in(widget);
     }
@@ -342,10 +362,18 @@ static void rain_status_update_cb(struct rain_status_state state)
     struct zmk_widget_rain_status *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
     {
-        widget->key_pressed = state.pressed;
-        if (state.pressed && widget->visible)
+        if (state.pressed)
         {
-            rain_start_fade_out(widget);
+            widget->key_pressed = true;
+            widget->last_activity_ms = k_uptime_get();
+            if (widget->visible)
+            {
+                rain_start_fade_out(widget);
+            }
+        }
+        else
+        {
+            widget->key_pressed = false;
         }
     }
 }
@@ -379,6 +407,7 @@ int zmk_widget_rain_status_init(struct zmk_widget_rain_status *widget, lv_obj_t 
 
     widget->visible = false;
     widget->key_pressed = false;
+    widget->last_activity_ms = k_uptime_get();
 
     widget->timer = lv_timer_create(rain_frame_cb, RAIN_FRAME_MS, widget);
     lv_timer_pause(widget->timer);
