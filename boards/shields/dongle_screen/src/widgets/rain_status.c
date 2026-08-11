@@ -23,7 +23,9 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
 /* -------------------------------------------------------------------------
  * Geometry — fixed 4x5 glyph matrix, Mono_20 letters (adv_w 12px) with a
- * 3px column gap, so CELL_W = 12 + 3 = 15px.
+ * 3px column gap (CELL_W = 12 + 3 = 15px) and 3px row gap in portrait
+ * (CELL_H = letter box 14 + 3). Landscape keeps CELL_H=14 because the
+ * 200x56 showkey cell cannot fit 4 rows at 17px.
  *
  *   row0: E R G O ⌸      row1: a s t r a
  *   row2: e r g o ⌸      row3: A S T R A
@@ -43,32 +45,35 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * 30s sleep accent fade — rain can appear while the UI is still red. */
 #define RAIN_IDLE_TIMEOUT_MS 10000
 #define RAIN_GRIPPER "\U0000EB04"
+/* Gripper glyph content is 16px tall (size-22 font) vs Mono_20's 14px box;
+ * shift it down 1px so the two centers line up. */
+#define RAIN_GRIPPER_V_OFFSET 1
 
 /* Random-drop model: a drop is a brightness pulse that travels down one
  * column. Drops spawn at random times on random columns with random speeds
  * — no periodic schedule, no seamless-loop requirement. */
 #define RAIN_MAX_DROPS 6
-#define RAIN_SPAWN_CHANCE 30 /* percent per frame (drops are faster now) */
+#define RAIN_SPAWN_CHANCE 20 /* percent per frame (sparser, slower drops) */
 #define RAIN_TRAIL_S 3
 
 /* Mono_20 adv_w = 192/16 = 12px; +3px gap = 15px column pitch. */
 #define RAIN_CELL_W 15
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
 /* showkey cell (60,112) 200x56. 5 cols x 15px = 75, 4 rows x 14px = 56.
- * Mono_20 line box is 21px, so landscape crops 7px off each glyph. */
+ * Landscape cannot fit a 3px row gap (4 x 17 = 68 > 56), so rows abut. */
 #define RAIN_CELL_H 14
 #define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
 #define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 56 */
 #define RAIN_X 122 /* 60 + (200 - 75) / 2 */
 #define RAIN_Y 112
 #else
-/* showkey cell (44,138) 152x82. 5 cols x 15px = 75, 4 rows x 20px = 80.
- * Mono_20 glyphs (21px line box) fit a 20px row with a 1px trim. */
-#define RAIN_CELL_H 20
+/* showkey cell (44,138) 152x82. 5 cols x 15px = 75, 4 rows x 17px = 68
+ * (letter box 14 + 3px row gap), centered in the 82px-tall cell. */
+#define RAIN_CELL_H 17
 #define RAIN_W (RAIN_COLS * RAIN_CELL_W) /* 75 */
-#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 80 */
+#define RAIN_H (RAIN_ROWS * RAIN_CELL_H) /* 68 */
 #define RAIN_X 82 /* 44 + (152 - 75) / 2 */
-#define RAIN_Y 139
+#define RAIN_Y 146 /* 138 + (82 - 68) / 2 */
 #endif
 
 /* Base color matches the screen root background so the block blends in. */
@@ -129,17 +134,46 @@ static void rain_rebuild_lut(void)
     }
 }
 
-/* Spawn a new drop on a random column with a random speed, if a slot is free. */
+/* Spawn a new drop on a random column with a random speed, if a slot is free.
+ * Avoids columns that already have an active drop so one column does not get
+ * repeated drops back-to-back. */
 static void rain_spawn_drop(void)
 {
+    bool col_busy[RAIN_COLS] = {false};
+    uint8_t free = RAIN_COLS;
+
+    for (uint8_t i = 0; i < RAIN_MAX_DROPS; i++)
+    {
+        if (rain_drops[i].active && !col_busy[rain_drops[i].col])
+        {
+            col_busy[rain_drops[i].col] = true;
+            free--;
+        }
+    }
+
+    if (free == 0)
+    {
+        return;
+    }
+
+    uint8_t target = sys_rand32_get() % free;
+    for (uint8_t c = 0; c < RAIN_COLS; c++)
+    {
+        if (!col_busy[c] && target-- == 0)
+        {
+            target = c;
+            break;
+        }
+    }
+
     for (uint8_t i = 0; i < RAIN_MAX_DROPS; i++)
     {
         if (!rain_drops[i].active)
         {
             rain_drops[i].active = true;
-            rain_drops[i].col = sys_rand32_get() % RAIN_COLS;
+            rain_drops[i].col = target;
             rain_drops[i].pos = -1.0f;
-            rain_drops[i].speed = 0.12f + (float)(sys_rand32_get() % 80) / 1000.0f;
+            rain_drops[i].speed = 0.18f + (float)(sys_rand32_get() % 100) / 1000.0f;
             return;
         }
     }
@@ -246,11 +280,20 @@ static void rain_draw_frame(struct zmk_widget_rain_status *widget)
             /* Label area = the cell; LVGL centers the glyph's line box inside
              * it, so a 21px Mono_20 line in a 20px portrait cell trims 1px
              * (landscape's 14px rows crop harder by design). */
+            int32_t vy = r * RAIN_CELL_H;
+            if (gripper)
+            {
+                /* The U+EB04 gripper glyph's bitmap occupies only the top 7
+                 * of its 14px box (row 7..13 are empty), while Mono_20 letter
+                 * bitmaps fill the whole box. Push the gripper down so its
+                 * visual center aligns with the letters. */
+                vy += RAIN_GRIPPER_V_OFFSET;
+            }
             lv_area_t area = {
                 .x1 = (lv_coord_t)(c * RAIN_CELL_W),
-                .y1 = (lv_coord_t)(r * RAIN_CELL_H),
+                .y1 = (lv_coord_t)vy,
                 .x2 = (lv_coord_t)(c * RAIN_CELL_W + RAIN_CELL_W - 1),
-                .y2 = (lv_coord_t)MIN(r * RAIN_CELL_H + RAIN_CELL_H - 1, RAIN_H - 1),
+                .y2 = (lv_coord_t)MIN(vy + RAIN_CELL_H - 1, RAIN_H - 1),
             };
             lv_draw_label(&layer, &dsc, &area);
         }
