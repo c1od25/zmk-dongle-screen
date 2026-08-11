@@ -205,6 +205,13 @@ static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
         return raw;
     }
 
+    if (f == 0) {
+        /* No filter history yet: accept the first reading directly instead of
+         * spike-rejecting it to 0 (a real battery cannot be 0 on first sight). */
+        filtered_level[source] = (int32_t)raw * EMA_SCALE;
+        return raw;
+    }
+
     int32_t prev_display = f / EMA_SCALE;
     int32_t delta = (int32_t)raw - prev_display;
 
@@ -467,7 +474,6 @@ static void battery_status_refresh(void)
 static void battery_status_poll_cb(lv_timer_t *timer)
 {
     uint8_t level = 0;
-    bool changed = false;
 
     for (uint8_t i = 0; i < BATTERY_SLOT_COUNT; i++)
     {
@@ -478,7 +484,11 @@ static void battery_status_poll_cb(lv_timer_t *timer)
 
         if (last_battery_levels[i] != (int8_t)level)
         {
-            last_battery_levels[i] = level;
+            /* Do NOT pre-write last_battery_levels here: set_battery_symbol
+             * updates the tracking itself and needs the stale value to detect
+             * reconnection. Pre-writing caused poll-vs-event races where one
+             * slot skipped the reconnect passthrough and rendered differently
+             * (immediate vs 1s-delayed) from the other. */
             set_battery_symbol(NULL, (struct battery_state){
                 .source = i,
                 .level = level,
@@ -611,10 +621,9 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
     // Initialize peripheral tracking
     init_peripheral_tracking();
 
-    /* Poll the central's cached peripheral battery levels every 120s — the
-     * halves already report at CONFIG_ZMK_BATTERY_REPORT_INTERVAL=120, so a
-     * 1s poll was 120x more frequent than needed for a fallback. */
-    widget->poll_timer = lv_timer_create(battery_status_poll_cb, 120000, widget);
+    /* Poll the central's cached peripheral battery levels every 30s as a
+     * fallback to the halves' event-driven reports (user-tuned interval). */
+    widget->poll_timer = lv_timer_create(battery_status_poll_cb, 30000, widget);
 
     widget_dongle_battery_status_init();
 
