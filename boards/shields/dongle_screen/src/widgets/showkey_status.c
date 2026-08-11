@@ -63,8 +63,8 @@ struct showkey_lookup
 #define ICON_TAB   "\U000F0312" /* nf-md-keyboard_tab */
 #define ICON_ESC   "\U000F12B7" /* nf-md-keyboard_esc */
 #define ICON_CAPS  "\U000F030E" /* nf-md-keyboard_caps */
-#define ICON_VOL_UP "\U000F05A1" /* nf-md-volume_plus — encoder wheel up */
-#define ICON_VOL_DN "\U000F05A0" /* nf-md-volume_minus — encoder wheel down */
+#define ICON_VOL_UP "\U000F075D" /* nf-md-volume_plus — encoder wheel up */
+#define ICON_VOL_DN "\U000F075E" /* nf-md-volume_minus — encoder wheel down */
 
 /* HID usage (keyboard page 0x07) → icon (with optional L/R side prefix). */
 static const struct key_icon
