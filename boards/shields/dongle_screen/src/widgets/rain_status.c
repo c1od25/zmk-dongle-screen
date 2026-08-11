@@ -37,17 +37,17 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #define RAIN_COLS 5
 #define RAIN_FRAME_MS 50
 
-#define RAIN_FADE_IN_MS 5000
+#define RAIN_FADE_IN_MS 2000
 #define RAIN_FADE_OUT_MS 250
 #define RAIN_GATE_POLL_MS 500
-/* Rain's own idle gate: 10s without a key press. Independent of the theme's
+/* Rain's own idle gate: 5s without a key press. Independent of the theme's
  * 30s sleep accent fade — rain can appear while the UI is still red. */
-#define RAIN_IDLE_TIMEOUT_MS 10000
+#define RAIN_IDLE_TIMEOUT_MS 5000
 #define RAIN_GRIPPER "\U0000EB04"
-/* Gripper glyph (U+EB04, size 26) content is 9px tall — 64% of Mono_20's
- * 14px letter box, lighter than the 71% size-30 version per user review;
- * its adv_w 15.6px vs letters' 12px is fine at the matrix corners. Shift it
- * down (14-9)/2 = 2.5 -> 3px so its center matches the letters. */
+/* Gripper glyph (U+EB04, size 22) content is 9px tall — 64% of Mono_20's
+ * 14px letter box, lighter than the size-26 version per user review; its
+ * adv_w 13.2px is closest to the letters' 12px. Shift it down (14-9)/2 =
+ * 2.5 -> 3px so its center matches the letters. */
 #define RAIN_GRIPPER_V_OFFSET 3
 
 /* Random-drop model: a drop is a brightness pulse that travels down one

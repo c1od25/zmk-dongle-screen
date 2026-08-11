@@ -11,7 +11,7 @@
 
 /* Code-rain idle background animation in the showkey cell.
  *
- * Fades in (5s) after 10s without a key press, using its own idle timer —
+ * Fades in (2s) after 5s without a key press, using its own idle timer —
  * deliberately decoupled from the theme's 30s sleep accent fade, so code
  * rain appears while the accent is still red. Fades back out fast (250ms)
  * on the next key press so showkey takes over. Drives a small RGB565 canvas
