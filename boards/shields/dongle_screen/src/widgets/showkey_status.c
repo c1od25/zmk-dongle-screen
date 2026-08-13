@@ -12,6 +12,8 @@
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
 #include <zmk/hid.h>
+#include <zmk/hid_indicators.h>
+#include <dt-bindings/zmk/hid_indicators.h>
 #include <dt-bindings/zmk/hid_usage_pages.h>
 #include <dt-bindings/zmk/hid_usage.h>
 #include <dt-bindings/zmk/modifiers.h>
@@ -139,7 +141,8 @@ static const struct shift_pair shift_pairs[] = {
 /* Static text buffer — lv_label_set_text_static() does NOT copy. */
 static char showkey_buf[16];
 
-static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycode, bool shifted)
+static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycode, bool shift_held,
+                                            bool caps_lock)
 {
     struct showkey_lookup r = {.kind = SHOWKEY_TEXT, .text = NULL};
     uint32_t u = keycode;
@@ -175,6 +178,11 @@ static struct showkey_lookup lookup_showkey(uint16_t usage_page, uint32_t keycod
     {
         if (shift_pairs[i].usage == u)
         {
+            /* HID semantics: letters a-z (0x04-0x1D) render uppercase when
+             * Shift XOR Caps Lock is active; digits/punctuation only follow
+             * Shift (Caps Lock has no effect on them). */
+            bool letter = u >= 0x04 && u <= 0x1D;
+            bool shifted = shift_held ^ (letter && caps_lock);
             showkey_buf[0] = shifted ? shift_pairs[i].shifted : shift_pairs[i].plain;
             showkey_buf[1] = '\0';
             r.text = showkey_buf;
@@ -316,7 +324,13 @@ static void showkey_status_update_cb(struct showkey_status_state state)
      * truth (hid_listener builds it from every half's keycode events, same
      * bytes the host receives). Shift held on the OTHER half is visible here,
      * which the keycode event's own modifier fields can never tell us. */
-    bool shifted = (zmk_hid_get_keyboard_report()->body.modifiers & (MOD_LSFT | MOD_RSFT)) != 0;
+    bool shift_held =
+        (zmk_hid_get_keyboard_report()->body.modifiers & (MOD_LSFT | MOD_RSFT)) != 0;
+    /* Caps Lock is reported by the host via the USB HID LED report
+     * (zmk_hid_indicators_changed); it applies to letters only and is
+     * combined with Shift inside lookup_showkey. */
+    bool caps_lock =
+        (zmk_hid_indicators_get_current_profile() & HID_INDICATOR_CAPS_LOCK) != 0;
 
     struct zmk_widget_showkey_status *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
@@ -333,7 +347,7 @@ static void showkey_status_update_cb(struct showkey_status_state state)
             lv_obj_set_style_opa(widget->icon_label, LV_OPA_COVER, LV_PART_MAIN);
 
             struct showkey_lookup r =
-                lookup_showkey(state.usage_page, state.keycode, shifted);
+                lookup_showkey(state.usage_page, state.keycode, shift_held, caps_lock);
             showkey_apply(widget, &r);
             lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
             lv_obj_set_style_text_color(widget->icon_label, theme_accent_color(), LV_PART_MAIN);
