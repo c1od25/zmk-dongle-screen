@@ -100,149 +100,36 @@ struct battery_object
  */
 static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
 
-/*
- * Battery SOC filtering: EMA (exponential moving average) + step limiter
- * + spike rejection. Fixed-point EMA with scale=256 avoids floating-point.
- * EMA_ALPHA_FP = 0.35 × 256 ≈ 90  →  ~3-sample equivalent smoothing.
- * STEP_LIMIT = 10  →  max change per update |10%%| to prevent wake jumps.
- * SPIKE_THRESHOLD = 25  →  single-sample jumps >25%% are rejected (a real
- *   battery cannot physically change that much in 120 s).
- * On reconnect (sleep→wake), the raw level is used directly to avoid a
- * multi-update ramp that would take minutes at the 120 s report interval.
- */
-#define EMA_ALPHA_FP     90
-#define EMA_SCALE        256
-#define STEP_LIMIT       10
-#define SPIKE_THRESHOLD  45
-
-static int32_t filtered_level[BATTERY_SLOT_COUNT];
-static bool     just_reconnected[BATTERY_SLOT_COUNT]; /* wake: skip spike check for first post-wake value */
-
-/*
- * Display buffer: processed (filtered) values are held for DISPLAY_HOLD_MS
- * before rendering, so rapid successive updates coalesce into one refresh
- * instead of flickering on screen. A per-slot lv_timer restarts on every
- * update, committing only the final value when it fires.
- */
-#define DISPLAY_HOLD_MS 1000
-#define PENDING_NONE    (-1)
-
-static int8_t  pending_level[BATTERY_SLOT_COUNT];
-static lv_timer_t *pending_timer[BATTERY_SLOT_COUNT];
-
-/*
- * Bar value animation: the processed level transitions from the current bar
- * value to the target over BAR_ANIM_MS. Wake (rising) uses an overshoot
- * path for a lively elastic feel; drain (falling) uses ease-out so the bar
- * settles smoothly. A per-slot anim_level[] var is driven by lv_anim and the
- * exec callback pushes both the bar and the percent label in sync.
- */
-#define BAR_ANIM_MS 800
-
-static int32_t anim_level[BATTERY_SLOT_COUNT];
-
-static void battery_anim_exec_cb(void *var, int32_t v)
+static void init_peripheral_tracking(void)
 {
-    uint8_t source = (var == &anim_level[0]) ? 0 : 1;
-    struct battery_object *slot = &battery_objects[source];
-    if (slot->bar == NULL) return;
-
-    int32_t clamped = v < 0 ? 0 : (v > 100 ? 100 : v);
-    int32_t tens = ((clamped + 5) / 10) * 10; /* quantize to 10% steps */
-    lv_bar_set_value(slot->bar, tens, LV_ANIM_OFF);
-    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)tens);
-    lv_label_set_text_static(slot->icon, slot->text);
+    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
+    {
+        last_battery_levels[i] = -1; // -1 indicates never seen before
+    }
 }
 
-static void battery_anim_start(uint8_t source, int32_t target)
+static bool is_peripheral_reconnecting(uint8_t source, uint8_t new_level)
 {
-    struct battery_object *slot = &battery_objects[source];
-    if (slot->bar == NULL) return;
-
-    /* Quantize the target to the same 10% grid used by the display before
-     * animating. Otherwise the overshoot path (up to ~4.5% above target)
-     * can cross into the next 10% bucket and the display would jump back
-     * when the animation settles (e.g. 84% -> shows 90 then 80). */
-    target = ((target + 5) / 10) * 10;
-
-    int32_t start = lv_bar_get_value(slot->bar);
-
-    if (start == target) {
-        return;
+    if (source >= BATTERY_SLOT_COUNT)
+    {
+        return false;
     }
 
-    lv_anim_delete(&anim_level[source], battery_anim_exec_cb);
+    int8_t previous_level = last_battery_levels[source];
 
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, &anim_level[source]);
-    lv_anim_set_exec_cb(&a, battery_anim_exec_cb);
-    lv_anim_set_values(&a, start, target);
-    lv_anim_set_duration(&a, BAR_ANIM_MS);
-    /* Connect/wake from 0 uses ease-out: an overshoot on the full 0→X range
-     * (bezier peaks ~104.5%) crosses the 10% quantization bucket and renders
-     * as a fake one-shot spike (e.g. 70% then 60%). Keep overshoot only for
-     * small same-level adjustments where it stays inside the target bucket. */
-    lv_anim_set_path_cb(&a, (start > 0 && target > start) ? lv_anim_path_overshoot
-                                                          : lv_anim_path_ease_out);
-    lv_anim_start(&a);
-}
+    // Reconnection detected if:
+    // 1. Previous level was < 1 (disconnected/unknown) AND
+    // 2. New level is >= 1 (valid battery level)
+    bool reconnecting = (previous_level < 1) && (new_level >= 1);
 
-static void battery_display_render(uint8_t source);
-
-static uint8_t apply_filter(uint8_t source, uint8_t raw, bool reconnecting)
-{
-    int32_t f = filtered_level[source];
-
-    if (raw < 1) {
-        filtered_level[source] = 0;
-        just_reconnected[source] = false;
-        return 0;
+    if (reconnecting)
+    {
+        LOG_INF("Peripheral %d reconnection: %d%% -> %d%% (was %s)",
+                source, previous_level, new_level,
+                previous_level == -1 ? "never seen" : "disconnected");
     }
 
-    if (raw > 100) raw = 100;
-
-    if (reconnecting) {
-        /* Wake: the peripheral has already settled + preheated its reading,
-         * so accept the fresh value directly (no stale last-known-good). */
-        just_reconnected[source] = true;
-        filtered_level[source] = (int32_t)raw * EMA_SCALE;
-        return raw;
-    }
-
-    if (just_reconnected[source]) {
-        just_reconnected[source] = false;
-        filtered_level[source] = (int32_t)raw * EMA_SCALE;
-        return raw;
-    }
-
-    if (f == 0) {
-        /* No filter history yet: accept the first reading directly instead of
-         * spike-rejecting it to 0 (a real battery cannot be 0 on first sight). */
-        filtered_level[source] = (int32_t)raw * EMA_SCALE;
-        return raw;
-    }
-
-    int32_t prev_display = f / EMA_SCALE;
-    int32_t delta = (int32_t)raw - prev_display;
-
-    if (delta > SPIKE_THRESHOLD || delta < -SPIKE_THRESHOLD) {
-        return (uint8_t)prev_display;
-    }
-
-    int32_t raw_fp = (int32_t)raw * EMA_SCALE;
-
-    int32_t ema = (EMA_ALPHA_FP * raw_fp + (EMA_SCALE - EMA_ALPHA_FP) * f) / EMA_SCALE;
-
-    int32_t limit = STEP_LIMIT * EMA_SCALE;
-    if (ema > f + limit) {
-        ema = f + limit;
-    } else if (ema < f - limit) {
-        ema = f - limit;
-    }
-
-    filtered_level[source] = ema;
-    return (uint8_t)(ema / EMA_SCALE);
+    return reconnecting;
 }
 
 /* Bar styles (design doc §4): track on LV_PART_MAIN, tier on LV_PART_INDICATOR. */
@@ -292,40 +179,15 @@ static void set_bar_tier(lv_obj_t *bar, enum battery_bar_tier tier)
     }
 }
 
-static void init_peripheral_tracking(void)
-{
-    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
-    {
-        last_battery_levels[i] = -1; // -1 indicates never seen before
-    }
-}
-
-static bool is_peripheral_reconnecting(uint8_t source, uint8_t new_level)
-{
-    if (source >= BATTERY_SLOT_COUNT)
-    {
-        return false;
-    }
-
-    int8_t previous_level = last_battery_levels[source];
-
-    // Reconnection detected if:
-    // 1. Previous level was < 1 (disconnected/unknown) AND
-    // 2. New level is >= 1 (valid battery level)
-    bool reconnecting = (previous_level < 1) && (new_level >= 1);
-
-    if (reconnecting)
-    {
-        LOG_INF("Peripheral %d reconnection: %d%% -> %d%% (was %s)",
-                source, previous_level, new_level,
-                previous_level == -1 ? "never seen" : "disconnected");
-    }
-
-    return reconnecting;
-}
-
-/* Render the processed (filtered) level for a slot to the LVGL widgets. */
-static void battery_display_render(uint8_t source)
+/*
+ * Front-end render: directly draws the given level to the LVGL widgets.
+ * No filtering, buffering, or animation — this is the YADS receive semantics
+ * (event arrives → render immediately), keeping only our redesigned display
+ * (vertical bar + percent text + L/R tag). Rendering the raw level guarantees
+ * the connect state always shows as soon as the first battery event lands,
+ * removing the races introduced by the old filter/hold/anim pipeline.
+ */
+static void battery_display_render(uint8_t source, uint8_t level)
 {
     struct battery_object *slot = &battery_objects[source];
     if (slot->bar == NULL)
@@ -333,20 +195,19 @@ static void battery_display_render(uint8_t source)
         return;
     }
 
-    int8_t level = pending_level[source];
     if (level < 1)
     {
-        /* Disconnected: empty bar, red "X" tag (design §1). Bar still animates
-         * down to 0 for a smooth drain; the X tag appears immediately. */
+        /* Disconnected: empty bar, red "X" tag (design §1). */
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
         lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
         lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
         lv_label_set_text_static(slot->tag, "X");
-        battery_anim_start(source, 0);
+        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
+        lv_label_set_text_static(slot->icon, "--");
         return;
     }
 
-    /* Tier + colors switch instantly; value animates to the target. */
+    /* Tier + colors switch instantly with the raw level. */
     if (level < 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
@@ -362,25 +223,9 @@ static void battery_display_render(uint8_t source)
     lv_label_set_text_static(slot->tag, source == 0 ? "L" : "R");
     lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
 
-    battery_anim_start(source, level);
-}
-
-static void battery_pending_cb(lv_timer_t *timer)
-{
-    /* Identify the slot from the user_data passed at creation; the pointer
-     * comparison is fragile because the timer may fire after pending_timer[]
-     * was cleared, and a stale looping timer would be misidentified. */
-    uint8_t source = (uint8_t)(uintptr_t)lv_timer_get_user_data(timer);
-    pending_timer[source] = NULL;
-    lv_timer_delete(timer);
-
-    if (pending_level[source] == PENDING_NONE)
-    {
-        return;
-    }
-
-    battery_display_render(source);
-    pending_level[source] = PENDING_NONE;
+    lv_bar_set_value(slot->bar, level, LV_ANIM_OFF);
+    snprintf(slot->text, sizeof(slot->text), "%d%%", level);
+    lv_label_set_text_static(slot->icon, slot->text);
 }
 
 static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
@@ -402,8 +247,6 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
     // Update our tracking
     last_battery_levels[state.source] = state.level;
 
-    state.level = apply_filter(state.source, state.level, reconnecting);
-
     // Wake screen on reconnection
     if (reconnecting)
     {
@@ -419,35 +262,7 @@ static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
 
     LOG_DBG("source: %d, level: %d, usb: %d", state.source, state.level, state.usb_present);
 
-    /* Disconnect must show immediately; buffered values render after the hold. */
-    if (state.level < 1)
-    {
-        if (pending_timer[state.source] != NULL)
-        {
-            lv_timer_delete(pending_timer[state.source]);
-            pending_timer[state.source] = NULL;
-        }
-        pending_level[state.source] = 0;
-        battery_display_render(state.source);
-        pending_level[state.source] = PENDING_NONE;
-        return;
-    }
-
-    /* Stage the processed value and (re)start the display hold timer. */
-    pending_level[state.source] = (int8_t)state.level;
-
-    if (pending_timer[state.source] != NULL)
-    {
-        lv_timer_reset(pending_timer[state.source]);
-    }
-    else
-    {
-        pending_timer[state.source] = lv_timer_create(battery_pending_cb, DISPLAY_HOLD_MS,
-                                                      (void *)(uintptr_t)state.source);
-        /* One-shot: auto-deletes after firing, so a stale looping timer can
-         * never linger and be misidentified as the other slot's callback. */
-        lv_timer_set_repeat_count(pending_timer[state.source], 1);
-    }
+    battery_display_render(state.source, state.level);
 }
 
 void battery_status_update_cb(struct battery_state state)
@@ -470,7 +285,7 @@ static void battery_status_refresh(void)
         }
 
         int8_t lvl = last_battery_levels[i];
-        if (lvl == 0)
+        if (lvl < 1)
         {
             lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
             lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
@@ -478,32 +293,6 @@ static void battery_status_refresh(void)
         else if (lvl > 0 && lvl < 30)
         {
             lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
-        }
-    }
-}
-
-static void battery_status_poll_cb(lv_timer_t *timer)
-{
-    uint8_t level = 0;
-
-    for (uint8_t i = 0; i < BATTERY_SLOT_COUNT; i++)
-    {
-        if (zmk_split_central_get_peripheral_battery_level(i, &level) != 0)
-        {
-            continue;
-        }
-
-        if (last_battery_levels[i] != (int8_t)level)
-        {
-            /* Do NOT pre-write last_battery_levels here: set_battery_symbol
-             * updates the tracking itself and needs the stale value to detect
-             * reconnection. Pre-writing caused poll-vs-event races where one
-             * slot skipped the reconnect passthrough and rendered differently
-             * (immediate vs 1s-delayed) from the other. */
-            set_battery_symbol(NULL, (struct battery_state){
-                .source = i,
-                .level = level,
-            });
         }
     }
 }
@@ -634,31 +423,10 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
     // Initialize peripheral tracking
     init_peripheral_tracking();
 
-    /* Poll the central's cached peripheral battery levels every 30s as a
-     * fallback to the halves' event-driven reports (user-tuned interval). */
-    widget->poll_timer = lv_timer_create(battery_status_poll_cb, 30000, widget);
-
-    /* Seed every slot from the central cache so the boot state reflects real
-     * connection data instead of the init literals. Render unconditionally:
-     * an unconnected slot (cache level 0) must show the red disconnect "X",
-     * not the init's grey "--"/"X". Without this, slot 1 stayed in its init
-     * style (grey, looks connected) while slot 0 got the red X from the macro
-     * init below (source hardcoded to 0) — asymmetric boot states. */
-    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
-    {
-        uint8_t lvl;
-        if (zmk_split_central_get_peripheral_battery_level(i, &lvl) == 0)
-        {
-            set_battery_symbol(NULL, (struct battery_state){.source = i, .level = lvl});
-        }
-    }
-
     /* The macro init renders the CENTRAL (dongle) battery into source 0.
      * In peripheral-only mode (DONGLE_BATTERY=n) slot 0 is peripheral #0, so
      * skip it — injecting the dongle's own 100% (USB VDDH) pre-fills slot 0's
-     * bar, which changes its connect animation from a rise (overshoot) into a
-     * drain (ease-out) while slot 1 still rises: the observed L/R asymmetry.
-     * Only enable the macro init when slot 0 is genuinely the dongle. */
+     * bar and would show a fake "L" on a half that never connected. */
 #if IS_ENABLED(CONFIG_ZMK_DONGLE_DISPLAY_DONGLE_BATTERY)
     widget_dongle_battery_status_init();
 #endif
