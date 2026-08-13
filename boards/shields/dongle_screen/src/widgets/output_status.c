@@ -51,8 +51,8 @@ static struct output_status_state get_state(const zmk_event_t *eh)
         .caps_lock = caps_lock};
 }
 
-#define COLOR_FG_MID ((lv_color_t)LV_COLOR_MAKE(0x9a, 0x9a, 0xa5))
-#define COLOR_FG_FAINT ((lv_color_t)LV_COLOR_MAKE(0x38, 0x38, 0x42))
+#define COLOR_FG_MID ((lv_color_t)LV_COLOR_MAKE(0x93, 0x99, 0xb2))
+#define COLOR_FG_FAINT ((lv_color_t)LV_COLOR_MAKE(0x6c, 0x70, 0x86))
 
 /* Caps lock icon — nf-md-caps_lock (U+F0A9B), top bar, left of the wifi icon.
  * Active = accent color, inactive = faint gray (design tri-state). */

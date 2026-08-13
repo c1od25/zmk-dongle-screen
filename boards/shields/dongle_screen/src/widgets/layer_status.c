@@ -44,7 +44,7 @@ static void layer_status_update_cb(struct layer_status_state state)
 
         lv_obj_set_style_text_color(widget->layer_name,
                                     state.index > 0 ? theme_accent_color()
-                                                    : lv_color_hex(0xececef),
+                                                    : lv_color_hex(0xcdd6f4),
                                     LV_PART_MAIN);
     }
 }
@@ -89,7 +89,7 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
      * documented fallback renders the layer name as plain text with no icon. */
     widget->layer_name = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->layer_name, &Mono_Italic_20, LV_PART_MAIN);
-    lv_obj_set_style_text_color(widget->layer_name, lv_color_hex(0xececef), LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->layer_name, lv_color_hex(0xcdd6f4), LV_PART_MAIN);
     lv_label_set_text_static(widget->layer_name, "");
     lv_obj_align(widget->layer_name, LV_ALIGN_CENTER, 0, 0);
 
