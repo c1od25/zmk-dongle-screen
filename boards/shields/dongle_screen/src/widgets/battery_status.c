@@ -173,6 +173,70 @@ static bool is_slot_connected(uint8_t source)
  * state snapshot each tick. A connected slot always shows its L/R tag even if
  * the battery level is still unknown (cache 0) — only a transport disconnect
  * renders the red X. */
+/*
+ * Bar value animation: the current bar value transitions to the target over
+ * BAR_ANIM_MS. Wake (rising) uses an overshoot path for a lively elastic
+ * feel; drain (falling) uses ease-out so the bar settles smoothly. A
+ * per-slot anim_level[] var is driven by lv_anim and the exec callback
+ * pushes both the bar and the percent label in sync.
+ */
+#define BAR_ANIM_MS 800
+
+static int32_t anim_level[BATTERY_SLOT_COUNT];
+
+static void battery_anim_exec_cb(void *var, int32_t v)
+{
+    uint8_t source = (var == &anim_level[0]) ? 0 : 1;
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->bar == NULL)
+    {
+        return;
+    }
+
+    int32_t clamped = v < 0 ? 0 : (v > 100 ? 100 : v);
+    int32_t tens = ((clamped + 5) / 10) * 10; /* quantize to 10% steps */
+    lv_bar_set_value(slot->bar, tens, LV_ANIM_OFF);
+    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)tens);
+    lv_label_set_text_static(slot->icon, slot->text);
+}
+
+static void battery_anim_start(uint8_t source, int32_t target)
+{
+    struct battery_object *slot = &battery_objects[source];
+    if (slot->bar == NULL)
+    {
+        return;
+    }
+
+    /* Quantize the target to the same 10% grid used by the display before
+     * animating. Otherwise the overshoot path (up to ~4.5% above target)
+     * can cross into the next 10% bucket and the display would jump back
+     * when the animation settles (e.g. 84% -> shows 90 then 80). */
+    target = ((target + 5) / 10) * 10;
+
+    int32_t start = lv_bar_get_value(slot->bar);
+
+    if (start == target)
+    {
+        return;
+    }
+
+    lv_anim_delete(&anim_level[source], battery_anim_exec_cb);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, &anim_level[source]);
+    lv_anim_set_exec_cb(&a, battery_anim_exec_cb);
+    lv_anim_set_values(&a, start, target);
+    lv_anim_set_duration(&a, BAR_ANIM_MS);
+    /* Connect/wake from 0 uses ease-out: an overshoot on the full 0->X range
+     * crosses the 10% quantization bucket and renders as a fake one-shot
+     * spike. Keep overshoot only for small same-level adjustments. */
+    lv_anim_set_path_cb(&a, (start > 0 && target > start) ? lv_anim_path_overshoot
+                                                          : lv_anim_path_ease_out);
+    lv_anim_start(&a);
+}
+
 static void battery_display_render(uint8_t source, uint8_t level)
 {
     struct battery_object *slot = &battery_objects[source];
@@ -185,19 +249,21 @@ static void battery_display_render(uint8_t source, uint8_t level)
 
     if (!connected)
     {
-        /* Disconnected: empty bar, red "X" tag (design §1). */
+        /* Disconnected: empty bar, red "X" tag (design §1). Tag switches
+         * instantly; the bar still animates down to 0 for a smooth drain. */
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
         lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
         lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
         lv_label_set_text_static(slot->tag, "X");
-        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
         lv_label_set_text_static(slot->icon, "--");
+        battery_anim_start(source, 0);
         return;
     }
 
-    /* Connected. Tag shows the slot designator; bar/percent show the level.
-     * A zero cache (battery not yet reported) renders "--" instead of a fake
-     * 0% so the user can tell "connected, level unknown" from "disconnected". */
+    /* Connected. Tag shows the slot designator; bar/percent animate to the
+     * level. A zero cache (battery not yet reported) renders "--" instead of
+     * a fake 0% so the user can tell "connected, level unknown" from
+     * "disconnected". */
     if (level >= 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_HI);
@@ -214,14 +280,12 @@ static void battery_display_render(uint8_t source, uint8_t level)
 
     if (level >= 1)
     {
-        lv_bar_set_value(slot->bar, level, LV_ANIM_OFF);
-        snprintf(slot->text, sizeof(slot->text), "%d%%", level);
-        lv_label_set_text_static(slot->icon, slot->text);
+        battery_anim_start(source, level);
     }
     else
     {
-        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
         lv_label_set_text_static(slot->icon, "--");
+        battery_anim_start(source, 0);
     }
 }
 
