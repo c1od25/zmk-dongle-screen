@@ -19,7 +19,7 @@
 - **theme_init() 最先调用**（在创建根对象之前），保证各 widget init 时能读到正确 accent
 - widget 按 `#if CONFIG_DONGLE_SCREEN_*_ACTIVE` 条件实例化（模块静态对象 + init 调用），与 CMakeLists 二层一致
 - **Z-order = 创建序**：output→sleep→layer→topsep→battery→mod→showkey→wpm/scanner/gif，后建渲染在上；battery 面板透明仅两列，不遮挡下层
-- 根背景 0x0a0a0d 全不透明、零 padding；global_style = 白字 + letter/line space 1
+- 根背景 0x1a1b26 全不透明、零 padding；global_style = 白字 + letter/line space 1
 - **定位契约**在文件头注释（71-95 行）逐 widget 列出：多数自定位；mod 只定尺寸由 screen 放 (60/66,50)；sleep 图标顶替 BT 格 (290,10)/(210,10)；wpm/scanner/gif 共用中下格
 - 布局全部显式 pos/align，无 flex/grid；新增 widget 先看头注释再定位
 

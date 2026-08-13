@@ -24,8 +24,8 @@
  *     animation can re-apply the interpolated color on every frame
  */
 
-#define THEME_ACCENT_RED  ((lv_color_t)LV_COLOR_MAKE(0xf3, 0x8b, 0xa8))
-#define THEME_ACCENT_CYAN ((lv_color_t)LV_COLOR_MAKE(0x89, 0xdc, 0xeb))
+#define THEME_ACCENT_RED  ((lv_color_t)LV_COLOR_MAKE(0xf7, 0x76, 0x8e))
+#define THEME_ACCENT_CYAN ((lv_color_t)LV_COLOR_MAKE(0x7d, 0xcf, 0xff))
 #define THEME_FADE_MS     2000
 
 /* No key activity for this long → sleep mode (accent fades to cyan). The

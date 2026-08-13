@@ -41,12 +41,12 @@
 #endif
 
 /* Trail alphas (head then 5 exponential-decay steps); inactive dot is a
- * mid-strength mix. RGB is lerped toward the panel bg (Catppuccin Base
- * #1e1e2e) because LVGL lv_obj backgrounds are opaque (no per-block alpha
+ * mid-strength mix. RGB is lerped toward the panel bg (Tokyo Night bg
+ * #1a1b26) because LVGL lv_obj backgrounds are opaque (no per-block alpha
  * blending). */
-#define SCAN_BG_R 30
-#define SCAN_BG_G 30
-#define SCAN_BG_B 46
+#define SCAN_BG_R 26
+#define SCAN_BG_G 27
+#define SCAN_BG_B 38
 
 static const float trail_alphas[6] = {1.0f, 0.9f, 0.65f, 0.42f, 0.28f, 0.18f};
 

@@ -408,14 +408,14 @@ int zmk_widget_showkey_status_init(struct zmk_widget_showkey_status *widget, lv_
     /* Mono_Italic_48 (full ASCII) — text keys plus the L/R prefix for mods. */
     widget->label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->label, &Mono_Italic_48, LV_PART_MAIN);
-    lv_obj_set_style_text_color(widget->label, lv_color_hex(0xcdd6f4), LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->label, lv_color_hex(0xc0caf5), LV_PART_MAIN);
     lv_label_set_text_static(widget->label, "");
     lv_obj_align(widget->label, LV_ALIGN_CENTER, 0, 0);
 
     /* NerdFonts_Regular_48 — icon glyphs (mods/arrows/special keys). */
     widget->icon_label = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->icon_label, &NerdFonts_Regular_48, LV_PART_MAIN);
-    lv_obj_set_style_text_color(widget->icon_label, lv_color_hex(0xcdd6f4), LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->icon_label, lv_color_hex(0xc0caf5), LV_PART_MAIN);
     lv_label_set_text_static(widget->icon_label, "");
     lv_obj_align(widget->icon_label, LV_ALIGN_CENTER, 0, 0);
 

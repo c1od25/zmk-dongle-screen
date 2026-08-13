@@ -82,7 +82,7 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #endif
 
 /* Base color matches the screen root background so the block blends in. */
-#define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x1e, 0x1e, 0x2e))
+#define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x1a, 0x1b, 0x26))
 
 /* Fixed gripper glyph string (U+EB04). Stored once; the matrix references it
  * by pointer identity so the draw loop can pick the icon font per cell. */

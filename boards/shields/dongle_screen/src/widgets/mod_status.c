@@ -9,9 +9,9 @@
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 /* Design palette (design doc §4). */
-#define MOD_BG_IDLE       0x181825
-#define MOD_BORDER_IDLE   0x45475a
-#define MOD_TEXT_IDLE     0x6c7086
+#define MOD_BG_IDLE       0x16161e
+#define MOD_BORDER_IDLE   0x3b4261
+#define MOD_TEXT_IDLE     0x737aa2
 
 /* Mods cell geometry (design doc §2.5 portrait / §3.5 landscape). */
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL

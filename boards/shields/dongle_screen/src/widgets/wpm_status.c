@@ -88,13 +88,13 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
      */
     widget->wpm_value = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->wpm_value, &Mono_28, 0);
-    lv_obj_set_style_text_color(widget->wpm_value, lv_color_hex(0xcdd6f4), 0);
+    lv_obj_set_style_text_color(widget->wpm_value, lv_color_hex(0xc0caf5), 0);
     lv_obj_align(widget->wpm_value, LV_ALIGN_BOTTOM_MID, 22, -3);
     lv_label_set_text_static(widget->wpm_value, "0");
 
     widget->wpm_icon = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->wpm_icon, &NerdFonts_Speedo_40, 0);
-    lv_obj_set_style_text_color(widget->wpm_icon, lv_color_hex(0x9399b2), 0);
+    lv_obj_set_style_text_color(widget->wpm_icon, lv_color_hex(0xa9b1d6), 0);
     lv_obj_set_style_pad_all(widget->wpm_icon, 0, LV_PART_MAIN);
     /* U+F04C5 is above the BMP — needs the 8-digit \U0000XXXX escape, not
      * \uXXXX (a 4-digit \u escape would render a missing-glyph tofu box). */

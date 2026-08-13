@@ -114,7 +114,7 @@ lv_obj_t *zmk_display_status_screen()
     screen = lv_obj_create(NULL);
     /* Root background: bg0 #0a0a0d, fully opaque, no padding (design §4
      * `style_screen_bg`). LVGL 9 split-pad API: pad_all no longer exists. */
-    lv_obj_set_style_bg_color(screen, lv_color_hex(0x1e1e2e), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0x1a1b26), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_pad_top(screen, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(screen, 0, LV_PART_MAIN);
@@ -123,7 +123,7 @@ lv_obj_t *zmk_display_status_screen()
 
     lv_style_init(&global_style);
     // lv_style_set_text_font(&global_style, &lv_font_unscii_8); // ToDo: Font is not recognized
-    lv_style_set_text_color(&global_style, lv_color_hex(0xcdd6f4));
+    lv_style_set_text_color(&global_style, lv_color_hex(0xc0caf5));
     lv_style_set_text_letter_space(&global_style, 1);
     lv_style_set_text_line_space(&global_style, 1);
     lv_obj_add_style(screen, &global_style, LV_PART_MAIN);
@@ -161,7 +161,7 @@ lv_obj_t *zmk_display_status_screen()
     lv_obj_t *topsep = lv_obj_create(screen);
     lv_obj_remove_style_all(topsep);
     lv_obj_remove_flag(topsep, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(topsep, lv_color_hex(0x45475a), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(topsep, lv_color_hex(0x3b4261), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(topsep, LV_OPA_COVER, LV_PART_MAIN);
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
     lv_obj_set_pos(topsep, 10, 41);
