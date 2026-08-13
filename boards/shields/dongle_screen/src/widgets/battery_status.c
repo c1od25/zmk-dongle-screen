@@ -12,10 +12,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/battery.h>
 #include <zmk/split/central.h>
+#include <zmk/split/transport/central.h>
 #include <zmk/display.h>
-#include <zmk/events/battery_state_changed.h>
-#include <zmk/events/usb_conn_state_changed.h>
-#include <zmk/event_manager.h>
 #include <zmk/usb.h>
 
 #include "battery_status.h"
@@ -30,6 +28,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #endif
 
 #define BATTERY_SLOT_COUNT (ZMK_SPLIT_CENTRAL_PERIPHERAL_COUNT + SOURCE_OFFSET)
+
+extern const struct zmk_split_transport_central *active_transport;
 
 /*
  * Battery slots are connection-order based, not physical-side based:
@@ -75,13 +75,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
-struct battery_state
-{
-    uint8_t source;
-    uint8_t level;
-    bool usb_present;
-};
-
 /*
  * Per-slot widget objects: "NN%" percent text (battery glyphs U+F240-F244 are
  * NOT in the committed NerdFonts — font audit), a vertical lv_bar, and the
@@ -94,43 +87,6 @@ struct battery_object
     lv_obj_t *tag;
     char text[8]; /* per-slot stable storage; lv_label_set_text_static() does NOT copy */
 } battery_objects[BATTERY_SLOT_COUNT];
-
-/* Peripheral reconnection tracking
- * ZMK sends battery events with level < 1 when peripherals disconnect
- */
-static int8_t last_battery_levels[BATTERY_SLOT_COUNT];
-
-static void init_peripheral_tracking(void)
-{
-    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
-    {
-        last_battery_levels[i] = -1; // -1 indicates never seen before
-    }
-}
-
-static bool is_peripheral_reconnecting(uint8_t source, uint8_t new_level)
-{
-    if (source >= BATTERY_SLOT_COUNT)
-    {
-        return false;
-    }
-
-    int8_t previous_level = last_battery_levels[source];
-
-    // Reconnection detected if:
-    // 1. Previous level was < 1 (disconnected/unknown) AND
-    // 2. New level is >= 1 (valid battery level)
-    bool reconnecting = (previous_level < 1) && (new_level >= 1);
-
-    if (reconnecting)
-    {
-        LOG_INF("Peripheral %d reconnection: %d%% -> %d%% (was %s)",
-                source, previous_level, new_level,
-                previous_level == -1 ? "never seen" : "disconnected");
-    }
-
-    return reconnecting;
-}
 
 /* Bar styles (design doc §4): track on LV_PART_MAIN, tier on LV_PART_INDICATOR. */
 static lv_style_t style_bar_track;
@@ -179,14 +135,44 @@ static void set_bar_tier(lv_obj_t *bar, enum battery_bar_tier tier)
     }
 }
 
-/*
- * Front-end render: directly draws the given level to the LVGL widgets.
- * No filtering, buffering, or animation — this is the YADS receive semantics
- * (event arrives → render immediately), keeping only our redesigned display
- * (vertical bar + percent text + L/R tag). Rendering the raw level guarantees
- * the connect state always shows as soon as the first battery event lands,
- * removing the races introduced by the old filter/hold/anim pipeline.
- */
+/* True when the transport reports the slot's peripheral as connected. The
+ * transport connection state is authoritative and independent of the battery
+ * event pipeline, so the L/R/X tags never get stuck on a stale battery level. */
+static bool is_slot_connected(uint8_t source)
+{
+    if (source < SOURCE_OFFSET || source >= BATTERY_SLOT_COUNT)
+    {
+        return false;
+    }
+
+    if (!active_transport || !active_transport->api || !active_transport->api->get_available_source_ids)
+    {
+        return false;
+    }
+
+    uint8_t sources[ZMK_SPLIT_CENTRAL_PERIPHERAL_COUNT];
+    int count = active_transport->api->get_available_source_ids(sources);
+    if (count < 0)
+    {
+        return false;
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        if (sources[i] == source - SOURCE_OFFSET)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/* Directly draw the given level for a slot to the LVGL widgets. No filtering,
+ * buffering, or animation: this widget is poll-driven and renders the current
+ * state snapshot each tick. A connected slot always shows its L/R tag even if
+ * the battery level is still unknown (cache 0) — only a transport disconnect
+ * renders the red X. */
 static void battery_display_render(uint8_t source, uint8_t level)
 {
     struct battery_object *slot = &battery_objects[source];
@@ -195,7 +181,9 @@ static void battery_display_render(uint8_t source, uint8_t level)
         return;
     }
 
-    if (level < 1)
+    bool connected = is_slot_connected(source);
+
+    if (!connected)
     {
         /* Disconnected: empty bar, red "X" tag (design §1). */
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
@@ -207,143 +195,71 @@ static void battery_display_render(uint8_t source, uint8_t level)
         return;
     }
 
-    /* Tier + colors switch instantly with the raw level. */
-    if (level < 30)
-    {
-        set_bar_tier(slot->bar, BATTERY_BAR_LO);
-        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
-    }
-    else
+    /* Connected. Tag shows the slot designator; bar/percent show the level.
+     * A zero cache (battery not yet reported) renders "--" instead of a fake
+     * 0% so the user can tell "connected, level unknown" from "disconnected". */
+    if (level >= 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_HI);
         lv_obj_set_style_text_color(slot->icon, lv_color_hex(0x9a9aa5), 0);
     }
+    else
+    {
+        set_bar_tier(slot->bar, BATTERY_BAR_LO);
+        lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
+    }
 
-    /* Tag: restore the slot designator after a disconnect "X". */
     lv_label_set_text_static(slot->tag, source == 0 ? "L" : "R");
     lv_obj_set_style_text_color(slot->tag, lv_color_hex(0x9a9aa5), 0);
 
-    lv_bar_set_value(slot->bar, level, LV_ANIM_OFF);
-    snprintf(slot->text, sizeof(slot->text), "%d%%", level);
-    lv_label_set_text_static(slot->icon, slot->text);
-}
-
-static void set_battery_symbol(lv_obj_t *widget, struct battery_state state)
-{
-    if (state.source >= BATTERY_SLOT_COUNT)
+    if (level >= 1)
     {
-        return;
+        lv_bar_set_value(slot->bar, level, LV_ANIM_OFF);
+        snprintf(slot->text, sizeof(slot->text), "%d%%", level);
+        lv_label_set_text_static(slot->icon, slot->text);
     }
-
-    struct battery_object *slot = &battery_objects[state.source];
-    if (slot->bar == NULL)
+    else
     {
-        return;
+        lv_bar_set_value(slot->bar, 0, LV_ANIM_OFF);
+        lv_label_set_text_static(slot->icon, "--");
     }
-
-    // Check for reconnection using the existing battery level mechanism
-    bool reconnecting = is_peripheral_reconnecting(state.source, state.level);
-
-    // Update our tracking
-    last_battery_levels[state.source] = state.level;
-
-    // Wake screen on reconnection
-    if (reconnecting)
-    {
-#if CONFIG_DONGLE_SCREEN_IDLE_TIMEOUT_S > 0
-        LOG_INF("Peripheral %d reconnected (battery: %d%%), requesting screen wake",
-                state.source, state.level);
-        brightness_wake_screen_on_reconnect();
-#else
-        LOG_INF("Peripheral %d reconnected (battery: %d%%)",
-                state.source, state.level);
-#endif
-    }
-
-    LOG_DBG("source: %d, level: %d, usb: %d", state.source, state.level, state.usb_present);
-
-    battery_display_render(state.source, state.level);
-}
-
-void battery_status_update_cb(struct battery_state state)
-{
-    struct zmk_widget_dongle_battery_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_battery_symbol(widget->obj, state); }
 }
 
 static void battery_status_refresh(void)
 {
     lv_style_set_bg_color(&style_bar_lo, theme_accent_color());
     lv_obj_report_style_change(&style_bar_lo);
+}
 
-    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
+/* 1s poll: the single driver of this widget. Each tick re-reads the transport
+ * connection state and the central's cached battery levels and re-renders the
+ * affected slots, so a connect/disconnect shows within one second regardless of
+ * whether any battery event was delivered (boot reads may fail or be dropped). */
+static void battery_status_poll_cb(lv_timer_t *timer)
+{
+    static bool prev_connected[BATTERY_SLOT_COUNT];
+
+    for (uint8_t i = 0; i < BATTERY_SLOT_COUNT; i++)
     {
-        struct battery_object *slot = &battery_objects[i];
-        if (slot->bar == NULL)
+        uint8_t level = 0;
+        bool has_level = zmk_split_central_get_peripheral_battery_level(i - SOURCE_OFFSET, &level) == 0;
+
+        bool connected = is_slot_connected(i);
+        if (connected && !prev_connected[i])
         {
-            continue;
+            LOG_INF("Peripheral slot %d connected, waking screen", i);
+            brightness_wake_screen_on_reconnect();
+        }
+        prev_connected[i] = connected;
+
+        if (!has_level)
+        {
+            level = 0;
         }
 
-        int8_t lvl = last_battery_levels[i];
-        if (lvl < 1)
-        {
-            lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
-            lv_obj_set_style_text_color(slot->tag, theme_accent_color(), 0);
-        }
-        else if (lvl > 0 && lvl < 30)
-        {
-            lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
-        }
+        battery_display_render(i, level);
     }
 }
-
-static struct battery_state peripheral_battery_status_get_state(const zmk_event_t *eh)
-{
-    const struct zmk_peripheral_battery_state_changed *ev = as_zmk_peripheral_battery_state_changed(eh);
-    return (struct battery_state){
-        .source = ev->source + SOURCE_OFFSET,
-        .level = ev->state_of_charge,
-    };
-}
-
-static struct battery_state central_battery_status_get_state(const zmk_event_t *eh)
-{
-    const struct zmk_battery_state_changed *ev = as_zmk_battery_state_changed(eh);
-    return (struct battery_state){
-        .source = 0,
-        .level = (ev != NULL) ? ev->state_of_charge : zmk_battery_state_of_charge(),
-#if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
-        .usb_present = zmk_usb_is_powered(),
-#endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
-    };
-}
-
-static struct battery_state battery_status_get_state(const zmk_event_t *eh)
-{
-    if (as_zmk_peripheral_battery_state_changed(eh) != NULL)
-    {
-        return peripheral_battery_status_get_state(eh);
-    }
-    else
-    {
-        return central_battery_status_get_state(eh);
-    }
-}
-
-ZMK_DISPLAY_WIDGET_LISTENER(widget_dongle_battery_status, struct battery_state,
-                            battery_status_update_cb, battery_status_get_state)
-
-ZMK_SUBSCRIPTION(widget_dongle_battery_status, zmk_peripheral_battery_state_changed);
-
-#if IS_ENABLED(CONFIG_ZMK_DONGLE_DISPLAY_DONGLE_BATTERY)
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-
-ZMK_SUBSCRIPTION(widget_dongle_battery_status, zmk_battery_state_changed);
-#if IS_ENABLED(CONFIG_USB_DEVICE_STACK)
-ZMK_SUBSCRIPTION(widget_dongle_battery_status, zmk_usb_conn_state_changed);
-#endif /* IS_ENABLED(CONFIG_USB_DEVICE_STACK) */
-#endif /* !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
-#endif /* IS_ENABLED(CONFIG_ZMK_DONGLE_DISPLAY_DONGLE_BATTERY) */
 
 int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_status *widget, lv_obj_t *parent)
 {
@@ -397,9 +313,7 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
         lv_label_set_text_static(icon, "--");
 
         /* Slot designator tag. Starts as "X" (not-connected) — battery_display
-         * render flips it to "L"/"R" once a level arrives. Initializing to
-         * "L"/"R" here would show a half as present even if it never connects
-         * (e.g. its power is off), which is misleading. Bottom-relative
+         * render flips it to "L"/"R" once the slot is connected. Bottom-relative
          * alignment puts the tag bottom exactly on the WPM value bottom
          * (portrait 305, landscape 227) regardless of font line-height. */
         lv_obj_t *tag = lv_label_create(widget->obj);
@@ -420,16 +334,8 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
 
     theme_register_refresh(battery_status_refresh);
 
-    // Initialize peripheral tracking
-    init_peripheral_tracking();
-
-    /* The macro init renders the CENTRAL (dongle) battery into source 0.
-     * In peripheral-only mode (DONGLE_BATTERY=n) slot 0 is peripheral #0, so
-     * skip it — injecting the dongle's own 100% (USB VDDH) pre-fills slot 0's
-     * bar and would show a fake "L" on a half that never connected. */
-#if IS_ENABLED(CONFIG_ZMK_DONGLE_DISPLAY_DONGLE_BATTERY)
-    widget_dongle_battery_status_init();
-#endif
+    /* 1s poll: the sole driver of connection + battery display. */
+    widget->poll_timer = lv_timer_create(battery_status_poll_cb, 1000, widget);
 
     return 0;
 }
