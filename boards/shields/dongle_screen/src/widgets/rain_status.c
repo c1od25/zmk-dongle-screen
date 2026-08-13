@@ -137,14 +137,16 @@ static lv_color_t rain_lerp(lv_color_t a, lv_color_t b, uint8_t t)
 
 /* Rebuild the 10-level LUT from the current theme accent: index 0 = dimmed
  * accent (idle glyph), index 9 = brightened accent (drop head).
- * lv_color_darken(c, lvl) = mix(black, c, lvl) keeps lvl/255 of the source,
- * so darken(200) ≈ 22% brightness — clearly dimmer than the head. The head
- * is lightened toward white (mix with 16%) so the drops pop off the dark
- * background. */
+ * lv_color_darken(c, lvl) = mix(black, c, lvl) keeps (255-lvl)/255 of the
+ * source, so darken(120) ≈ 53% brightness. The dim end must stay clearly
+ * BRIGHTER than the panel bg (#1a1b26, luma 0.0114): a darker dim end is
+ * capped at ~1.23:1 contrast (black floor) and becomes invisible — darken(200)
+ * was tuned against the old near-black bg #0a0a0d and collapses on the new
+ * one (1.07:1). The head is lightened toward white so drops pop. */
 static void rain_rebuild_lut(void)
 {
     lv_color_t accent = theme_accent_color();
-    lv_color_t dim = lv_color_darken(accent, 200);       /* ~22% brightness */
+    lv_color_t dim = lv_color_darken(accent, 120);       /* ~53% brightness */
     lv_color_t bright = lv_color_lighten(accent, 40);    /* ~84% + 16% white */
     for (uint8_t i = 0; i < 10; i++)
     {
