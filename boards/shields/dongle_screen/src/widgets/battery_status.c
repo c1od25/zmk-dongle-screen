@@ -194,9 +194,8 @@ static void battery_anim_exec_cb(void *var, int32_t v)
     }
 
     int32_t clamped = v < 0 ? 0 : (v > 100 ? 100 : v);
-    int32_t tens = ((clamped + 5) / 10) * 10; /* quantize to 10% steps */
-    lv_bar_set_value(slot->bar, tens, LV_ANIM_OFF);
-    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)tens);
+    lv_bar_set_value(slot->bar, clamped, LV_ANIM_OFF);
+    snprintf(slot->text, sizeof(slot->text), "%d%%", (int)clamped);
     lv_label_set_text_static(slot->icon, slot->text);
 }
 
@@ -207,12 +206,6 @@ static void battery_anim_start(uint8_t source, int32_t target)
     {
         return;
     }
-
-    /* Quantize the target to the same 10% grid used by the display before
-     * animating. Otherwise the overshoot path (up to ~4.5% above target)
-     * can cross into the next 10% bucket and the display would jump back
-     * when the animation settles (e.g. 84% -> shows 90 then 80). */
-    target = ((target + 5) / 10) * 10;
 
     int32_t start = lv_bar_get_value(slot->bar);
 
