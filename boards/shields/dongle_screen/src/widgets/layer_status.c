@@ -27,11 +27,38 @@ struct layer_status_state
 
 static char layer_index_text[4];
 
+/* WIN-LOCK (2) / DIR (3) are toggle layers that stay active once engaged and
+ * are represented by the top-bar gamepad/arrows icons. Skip them here so the
+ * text cell shows the next active layer (BASE/FN) instead of being blanked by
+ * the toggle layer covering the momentary-layer display. */
+#define LAYER_INDEX_WINLOCK 2
+#define LAYER_INDEX_DIR 3
+
+static uint8_t display_layer_index(void)
+{
+    zmk_keymap_layers_state_t state = zmk_keymap_layer_state();
+
+    for (int idx = ZMK_KEYMAP_LAYERS_LEN - 1; idx >= 0; idx--)
+    {
+        if (idx == LAYER_INDEX_WINLOCK || idx == LAYER_INDEX_DIR)
+        {
+            continue;
+        }
+        if (zmk_keymap_layer_active(idx))
+        {
+            return idx;
+        }
+    }
+    return 0;
+}
+
 static void layer_status_update_cb(struct layer_status_state state)
 {
     struct zmk_widget_layer_status *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
     {
+        lv_obj_clear_flag(widget->layer_name, LV_OBJ_FLAG_HIDDEN);
+
         const char *label = state.label;
 
         if (label == NULL || label[0] == '\0')
@@ -51,7 +78,7 @@ static void layer_status_update_cb(struct layer_status_state state)
 
 static struct layer_status_state layer_status_get_state(const zmk_event_t *eh)
 {
-    uint8_t index = zmk_keymap_highest_layer_active();
+    uint8_t index = display_layer_index();
     return (struct layer_status_state){
         .index = index,
         .label = zmk_keymap_layer_name(index)};

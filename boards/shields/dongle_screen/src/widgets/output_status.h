@@ -15,6 +15,8 @@ struct zmk_widget_output_status
     lv_obj_t *obj;
     lv_obj_t *usb_label;
     lv_obj_t *caps_label;
+    lv_obj_t *winlock_icon;
+    lv_obj_t *dir_icon;
     sys_snode_t node;
 };
 

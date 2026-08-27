@@ -6,7 +6,7 @@
 
 - `src/` — 核心：brightness.c、custom_status_screen.c（布局）、screen_rotate_init.c、theme.c
 - `src/widgets/` — 9 个 widget 源，wpm/scanner/gif/sleep 按 *_ACTIVE 条件编译，其余无条件
-- `src/fonts/` — 8 个 LVGL 字体 C 文件，`file(GLOB)` 无条件编译
+- `src/fonts/` — 12 个 LVGL 字体 C 文件（Mono 正体+斜体、NerdFonts、Speedo、Gripper、Volume_48），`file(GLOB)` 无条件编译
 - `src/gifs/` — GIF 数据，仅 `CONFIG_DONGLE_SCREEN_GIF_ACTIVE` 时 glob 编译
 - `include/` — theme.h、fonts.h、sleep_status.h（唯一不在 widgets/ 的 widget 头）
 - `boards/` — nice_nano 与 xiao_ble 两套硬件 overlay（接线差异见下）
@@ -36,6 +36,7 @@
 - `ZMK_DISPLAY=y`、`ZMK_DISPLAY_STATUS_SCREEN_CUSTOM=y`、`ZMK_DISPLAY_DEDICATED_THREAD_STACK_SIZE=4096`
 - `ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING=y`
 - `ZMK_DONGLE_DISPLAY_DONGLE_BATTERY=n` — 默认 n；Kconfig 定义处 `depends on BT && (!ZMK_SPLIT_BLE || ZMK_SPLIT_ROLE_CENTRAL)`
+- **注意**：`CONFIG_ZMK_HID_INDICATORS=y`（caps lock 图标/showkey 大小写依赖）由 **consumer 的 dongle conf**（ergoastra `ergoastra_v1_ble_dongle.conf`）设置，不在本 shield conf
 
 ## dongle_screen.overlay（仅 chosen）
 

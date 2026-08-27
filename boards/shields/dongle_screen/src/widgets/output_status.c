@@ -14,7 +14,9 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/events/endpoint_changed.h>
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/events/hid_indicators_changed.h>
+#include <zmk/events/layer_state_changed.h>
 #include <zmk/hid_indicators.h>
+#include <zmk/keymap.h>
 #include <dt-bindings/zmk/hid_indicators.h>
 #include <zmk/usb.h>
 #include <zmk/endpoints.h>
@@ -30,6 +32,7 @@ struct output_status_state
     struct zmk_endpoint_instance selected_endpoint;
     bool usb_is_hid_ready;
     bool caps_lock;
+    uint8_t layer_index;
 };
 
 static struct output_status_state get_state(const zmk_event_t *eh)
@@ -48,7 +51,8 @@ static struct output_status_state get_state(const zmk_event_t *eh)
     return (struct output_status_state){
         .selected_endpoint = zmk_endpoint_get_selected(), // 0 = USB , 1 = BLE
         .usb_is_hid_ready = zmk_usb_is_hid_ready(),       // 0 = not ready, 1 = ready
-        .caps_lock = caps_lock};
+        .caps_lock = caps_lock,
+        .layer_index = zmk_keymap_highest_layer_active()};
 }
 
 #define COLOR_FG_MID ((lv_color_t)LV_COLOR_MAKE(0xa9, 0xb1, 0xd6))
@@ -57,6 +61,27 @@ static struct output_status_state get_state(const zmk_event_t *eh)
 /* Caps lock icon — nf-md-caps_lock (U+F0A9B), top bar, left of the wifi icon.
  * Active = accent color, inactive = faint gray (design tri-state). */
 #define CAPS_LOCK_ICON "\U000F0A9B"
+
+/* Special-layer icons — right of the USB icon, always visible like caps:
+ * inactive = faint gray, active layer = accent color. WIN-LOCK = fa-gamepad
+ * (U+F11B), DIR = fa-arrows_alt (U+F0B2). */
+#define LAYER_WINLOCK_ICON "\U0000F11B"
+#define LAYER_DIR_ICON "\U0000F0B2"
+
+#define LAYER_INDEX_WINLOCK 2
+#define LAYER_INDEX_DIR 3
+
+static void set_layer_symbol(struct zmk_widget_output_status *widget, uint8_t layer_index)
+{
+    lv_obj_set_style_text_color(widget->winlock_icon,
+                                layer_index == LAYER_INDEX_WINLOCK ? theme_accent_color()
+                                                                   : COLOR_FG_FAINT,
+                                LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->dir_icon,
+                                layer_index == LAYER_INDEX_DIR ? theme_accent_color()
+                                                               : COLOR_FG_FAINT,
+                                LV_PART_MAIN);
+}
 
 static void set_caps_symbol(struct zmk_widget_output_status *widget, bool caps_lock)
 {
@@ -87,6 +112,7 @@ static void output_status_update_cb(struct output_status_state state)
     {
         set_status_symbol(widget, state);
         set_caps_symbol(widget, state.caps_lock);
+        set_layer_symbol(widget, state.layer_index);
     }
 }
 
@@ -100,6 +126,7 @@ ZMK_DISPLAY_WIDGET_LISTENER(widget_output_status, struct output_status_state,
 ZMK_SUBSCRIPTION(widget_output_status, zmk_endpoint_changed);
 ZMK_SUBSCRIPTION(widget_output_status, zmk_usb_conn_state_changed);
 ZMK_SUBSCRIPTION(widget_output_status, zmk_hid_indicators_changed);
+ZMK_SUBSCRIPTION(widget_output_status, zmk_layer_state_changed);
 
 // output_status.c
 int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_obj_t *parent)
@@ -132,6 +159,24 @@ int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_ob
     lv_obj_set_style_text_align(widget->caps_label, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
     lv_obj_align(widget->caps_label, LV_ALIGN_TOP_RIGHT, -37, 2);
     set_caps_symbol(widget, false);
+
+    /* Special-layer icons — two 28px Nerd Font icons (17px each) right of the
+     * USB icon (usb glyph ~12px at x=12, so ends ~24). All gaps are 7px to
+     * match the capslock↔wifi gap: winlock at 31..48, dir at 55..72. The
+     * layer-status text (BASE/FN only, short and centered in its 108px cell
+     * starting at x=66) never reaches x=55, so no overlap.
+     * Always visible; inactive = faint gray, active = accent. */
+    widget->winlock_icon = lv_label_create(widget->obj);
+    lv_obj_set_style_text_font(widget->winlock_icon, &NerdFonts_Regular_28, LV_PART_MAIN);
+    lv_label_set_text_static(widget->winlock_icon, LAYER_WINLOCK_ICON);
+    lv_obj_set_style_text_align(widget->winlock_icon, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_obj_align(widget->winlock_icon, LV_ALIGN_TOP_LEFT, 31, 1);
+
+    widget->dir_icon = lv_label_create(widget->obj);
+    lv_obj_set_style_text_font(widget->dir_icon, &NerdFonts_Regular_28, LV_PART_MAIN);
+    lv_label_set_text_static(widget->dir_icon, LAYER_DIR_ICON);
+    lv_obj_set_style_text_align(widget->dir_icon, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
+    lv_obj_align(widget->dir_icon, LV_ALIGN_TOP_LEFT, 55, 1);
 
     sys_slist_append(&widgets, &widget->node);
 

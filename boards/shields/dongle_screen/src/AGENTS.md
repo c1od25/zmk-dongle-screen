@@ -4,12 +4,13 @@
 
 ## theme.c（头文件在 include/theme.h，不在本目录）
 
-- **睡眠态强调色渐变**：双半区电池都 <1 → 红 `THEME_ACCENT_RED`(0xef4d43) 渐变为青 `THEME_ACCENT_CYAN`(0x30c6d9)，THEME_FADE_MS=2000ms
-- `theme_accent_color()` 返回当前插值色；所有渲染 accent 红的 widget 必须换用此函数，别再写死红
+- **睡眠态强调色渐变**：无按键 30s（`SLEEP_ACTIVITY_TIMEOUT_MS`）→ 红 `THEME_ACCENT_RED`(0xf7768e, Tokyo Night red) 渐变为青 `THEME_ACCENT_CYAN`(0x7dcfff, Tokyo Night cyan)，THEME_FADE_MS=2000ms
+- **配色=Tokyo Night night 风格**（bg `#1a1b26`/fg `#c0caf5`/red `#f7768e`/cyan `#7dcfff`），只改 theme.h 双宏即全局换主题
+- `theme_accent_color()` 返回当前插值色；所有渲染 accent 的 widget 必须换用此函数，别再写死色值
 - `theme_register_refresh(cb)` 注册逐帧回调，上限 THEME_MAX_REFRESH=8，超限**静默丢弃**（无报错）
-- 睡眠判定 `theme_compute_asleep()` = `!((L>=1)||(R>=1))`，电池数据来自 peripheral battery 事件，非 BLE 连接事件
-- 事件通道：ZMK_LISTENER(theme) 订阅 `zmk_peripheral_battery_state_changed` → `k_work_submit_to_queue(zmk_display_work_q(), ...)`；LVGL 只由 work 回调动（线程安全契约）
-- **1s lv_timer 轮询兜底**：`theme_poll_cb` 直接 `zmk_split_central_get_peripheral_battery_level()` 读，事件丢失也能补；只在值变化时再提 work
+- **睡眠判定 = 按键活动超时**（`zmk_keycode_state_changed` 刷新 last_activity），**不依赖电池事件**（半区深睡已禁用，电池电平不再归零）；`theme_compute_asleep()` 由键活动时间戳计算
+- 事件通道：ZMK_LISTENER(theme) 订阅 `zmk_keycode_state_changed` → `k_work_submit_to_queue(zmk_display_work_q(), ...)`；LVGL 只由 work 回调动（线程安全契约）
+- **1s lv_timer 轮询兜底**：`theme_poll_cb` 检查无键活动超时，只在状态跳变时提 work
 - **lv_color_mix 方向坑**：`lv_color_mix(c1=红, c2=青, v)`：v==0→青、v==255→红。故动画值反向——fade→青时 255→0，fade→红时 0→255（`theme_start_fade` 的 values 与直觉相反）
 - `theme_init()`：初始色按当前睡眠态一步到位（无动画），启动 1000ms 轮询 timer；work 回调只在状态跳变时启动 fade，不重复动画
 
