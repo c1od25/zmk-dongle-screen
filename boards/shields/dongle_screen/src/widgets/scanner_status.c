@@ -16,28 +16,28 @@
  * 12-frame cycle gap of all-inactive dots. A 60ms lv_timer drives a frame
  * counter on the display thread (no ZMK events, zero dynamic alloc).
  */
-#define SCANNER_FRAME_MS  60
-#define SCANNER_CYCLE     46 /* 10 fwd + 5 out + 4 gap + 10 back + 5 out + 12 gap */
+#define SCANNER_FRAME_MS 60
+#define SCANNER_CYCLE 46 /* 10 fwd + 5 out + 4 gap + 10 back + 5 out + 12 gap */
 
 #define SCANNER_BLOCK_SIZE 10
-#define SCANNER_DOT_SIZE   4
-#define SCANNER_GAP        0
-#define SCANNER_DOT_OFF    ((SCANNER_BLOCK_SIZE - SCANNER_DOT_SIZE) / 2) /* 3 */
+#define SCANNER_DOT_SIZE 4
+#define SCANNER_GAP 0
+#define SCANNER_DOT_OFF ((SCANNER_BLOCK_SIZE - SCANNER_DOT_SIZE) / 2) /* 3 */
 
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-#define SCANNER_CELL_X      60
-#define SCANNER_CELL_Y      174
-#define SCANNER_CELL_W      200
-#define SCANNER_CELL_H      56
-#define SCANNER_BLOCKS_X    50 /* (200 - (10*10 + 9*0))/2 */
-#define SCANNER_BLOCKS_Y    23 /* (56 - 10)/2 */
+#define SCANNER_CELL_X 60
+#define SCANNER_CELL_Y 174
+#define SCANNER_CELL_W 200
+#define SCANNER_CELL_H 56
+#define SCANNER_BLOCKS_X 50 /* (200 - (10*10 + 9*0))/2 */
+#define SCANNER_BLOCKS_Y 23 /* (56 - 10)/2 */
 #else
-#define SCANNER_CELL_X      66
-#define SCANNER_CELL_Y      226
-#define SCANNER_CELL_W      108
-#define SCANNER_CELL_H      82
-#define SCANNER_BLOCKS_X    4  /* (108 - 100)/2 */
-#define SCANNER_BLOCKS_Y    36 /* (82 - 10)/2 */
+#define SCANNER_CELL_X 66
+#define SCANNER_CELL_Y 226
+#define SCANNER_CELL_W 108
+#define SCANNER_CELL_H 82
+#define SCANNER_BLOCKS_X 4  /* (108 - 100)/2 */
+#define SCANNER_BLOCKS_Y 36 /* (82 - 10)/2 */
 #endif
 
 /* Trail alphas (head then 5 exponential-decay steps); inactive dot is a
@@ -55,40 +55,32 @@ static lv_color_t inactive_color;
 static int frame_idx;
 static uint8_t last_state[SCANNER_BLOCK_N];
 
-static lv_color_t mix_toward_bg(uint8_t r, uint8_t g, uint8_t b, float alpha)
-{
+static lv_color_t mix_toward_bg(uint8_t r, uint8_t g, uint8_t b, float alpha) {
     uint8_t mr = (uint8_t)(SCAN_BG_R + (r - SCAN_BG_R) * alpha);
     uint8_t mg = (uint8_t)(SCAN_BG_G + (g - SCAN_BG_G) * alpha);
     uint8_t mb = (uint8_t)(SCAN_BG_B + (b - SCAN_BG_B) * alpha);
     return lv_color_make(mr, mg, mb);
 }
 
-static void scanner_recompute_colors(void)
-{
+static void scanner_recompute_colors(void) {
     lv_color32_t rgb = lv_color_to_32(theme_accent_color(), LV_OPA_COVER);
     uint8_t r = rgb.red;
     uint8_t g = rgb.green;
     uint8_t b = rgb.blue;
 
-    for (int k = 0; k < 6; k++)
-    {
+    for (int k = 0; k < 6; k++) {
         trail_colors[k] = mix_toward_bg(r, g, b, trail_alphas[k]);
     }
     inactive_color = mix_toward_bg(r, g, b, 0.6f);
 
-    for (int i = 0; i < SCANNER_BLOCK_N; i++)
-    {
+    for (int i = 0; i < SCANNER_BLOCK_N; i++) {
         last_state[i] = 0xFF; /* force repaint on next frame */
     }
 }
 
-static void scanner_status_refresh(void)
-{
-    scanner_recompute_colors();
-}
+static void scanner_status_refresh(void) { scanner_recompute_colors(); }
 
-static void scan_timer_cb(lv_timer_t *t)
-{
+static void scan_timer_cb(lv_timer_t *t) {
     struct zmk_widget_scanner_status *widget = lv_timer_get_user_data(t);
     int f = frame_idx++;
 
@@ -101,23 +93,23 @@ static void scan_timer_cb(lv_timer_t *t)
         dir = 1;
         all_inactive = false;
     } else if (f < 15) {
-        head = f;               /* 10..14: head exits the right edge */
+        head = f; /* 10..14: head exits the right edge */
         dir = 1;
         all_inactive = false;
     } else if (f < 19) {
-        all_inactive = true;    /* go-back gap (4 frames) */
+        all_inactive = true; /* go-back gap (4 frames) */
         head = 0;
         dir = 1;
     } else if (f < 29) {
-        head = 9 - (f - 19);    /* 9..0 */
+        head = 9 - (f - 19); /* 9..0 */
         dir = -1;
         all_inactive = false;
     } else if (f < 34) {
-        head = -1 - (f - 29);   /* -1..-5: head exits the left edge */
+        head = -1 - (f - 29); /* -1..-5: head exits the left edge */
         dir = -1;
         all_inactive = false;
     } else {
-        all_inactive = true;    /* cycle gap (12 frames) */
+        all_inactive = true; /* cycle gap (12 frames) */
         head = 0;
         dir = 1;
     }
@@ -142,8 +134,9 @@ static void scan_timer_cb(lv_timer_t *t)
         if (state == 0) {
             /* Inactive: small dot, centered (SCANNER_DOT_OFF in the slot). */
             lv_obj_set_size(b, SCANNER_DOT_SIZE, SCANNER_DOT_SIZE);
-            lv_obj_set_pos(b, SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + SCANNER_DOT_OFF,
-                           SCANNER_BLOCKS_Y + SCANNER_DOT_OFF);
+            lv_obj_set_pos(
+                b, SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + SCANNER_DOT_OFF,
+                SCANNER_BLOCKS_Y + SCANNER_DOT_OFF);
             lv_obj_set_style_bg_color(b, inactive_color, LV_PART_MAIN);
         } else {
             lv_obj_set_size(b, SCANNER_BLOCK_SIZE, SCANNER_BLOCK_SIZE);
@@ -154,8 +147,7 @@ static void scan_timer_cb(lv_timer_t *t)
     }
 }
 
-int zmk_widget_scanner_status_init(struct zmk_widget_scanner_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_scanner_status_init(struct zmk_widget_scanner_status *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
     lv_obj_remove_style_all(widget->obj);
     lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
@@ -168,7 +160,8 @@ int zmk_widget_scanner_status_init(struct zmk_widget_scanner_status *widget, lv_
     for (int i = 0; i < SCANNER_BLOCK_N; i++) {
         lv_obj_t *b = lv_obj_create(widget->obj);
         lv_obj_set_size(b, SCANNER_DOT_SIZE, SCANNER_DOT_SIZE);
-        lv_obj_set_pos(b, SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + SCANNER_DOT_OFF,
+        lv_obj_set_pos(b,
+                       SCANNER_BLOCKS_X + i * (SCANNER_BLOCK_SIZE + SCANNER_GAP) + SCANNER_DOT_OFF,
                        SCANNER_BLOCKS_Y + SCANNER_DOT_OFF);
         lv_obj_set_style_bg_color(b, inactive_color, LV_PART_MAIN);
         lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_PART_MAIN);
@@ -187,7 +180,6 @@ int zmk_widget_scanner_status_init(struct zmk_widget_scanner_status *widget, lv_
     return 0;
 }
 
-lv_obj_t *zmk_widget_scanner_status_obj(struct zmk_widget_scanner_status *widget)
-{
+lv_obj_t *zmk_widget_scanner_status_obj(struct zmk_widget_scanner_status *widget) {
     return widget->obj;
 }

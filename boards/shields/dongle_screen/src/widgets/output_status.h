@@ -10,8 +10,7 @@
 #include <zephyr/kernel.h>
 
 // output_status.h
-struct zmk_widget_output_status
-{
+struct zmk_widget_output_status {
     lv_obj_t *obj;
     lv_obj_t *usb_label;
     lv_obj_t *caps_label;

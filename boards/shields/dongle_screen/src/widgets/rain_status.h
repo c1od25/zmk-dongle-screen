@@ -17,14 +17,13 @@
  * on the next key press so showkey takes over. Drives a small RGB565 canvas
  * at 20fps with randomly spawned drops (random column / speed / timing — no
  * periodic schedule or loop). */
-struct zmk_widget_rain_status
-{
+struct zmk_widget_rain_status {
     sys_snode_t node;
-    lv_obj_t *obj;         /* the canvas itself */
-    lv_timer_t *timer;     /* 50ms frame timer (paused while hidden) */
-    lv_timer_t *gate_timer; /* 500ms fade-in gate poll (always running) */
-    bool visible;          /* animation active (fading in/out or running) */
-    bool key_pressed;      /* a key is currently held */
+    lv_obj_t *obj;            /* the canvas itself */
+    lv_timer_t *timer;        /* 50ms frame timer (paused while hidden) */
+    lv_timer_t *gate_timer;   /* 500ms fade-in gate poll (always running) */
+    bool visible;             /* animation active (fading in/out or running) */
+    bool key_pressed;         /* a key is currently held */
     int64_t last_activity_ms; /* k_uptime_get() of the last key press */
 };
 

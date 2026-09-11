@@ -29,61 +29,45 @@ static int fade_var;
 
 static void theme_start_fade(bool to_cyan);
 
-lv_color_t theme_accent_color(void)
-{
-    return accent;
-}
+lv_color_t theme_accent_color(void) { return accent; }
 
-bool theme_is_asleep(void)
-{
-    return asleep;
-}
+bool theme_is_asleep(void) { return asleep; }
 
-void theme_register_refresh(accent_refresh_cb_t cb)
-{
-    __ASSERT(refresh_count < THEME_MAX_REFRESH,
-             "theme refresh table full (%d entries)", THEME_MAX_REFRESH);
-    if (refresh_count >= THEME_MAX_REFRESH)
-    {
+void theme_register_refresh(accent_refresh_cb_t cb) {
+    __ASSERT(refresh_count < THEME_MAX_REFRESH, "theme refresh table full (%d entries)",
+             THEME_MAX_REFRESH);
+    if (refresh_count >= THEME_MAX_REFRESH) {
         LOG_ERR("theme refresh table full (%d entries); callback dropped", THEME_MAX_REFRESH);
         return;
     }
     refresh_cbs[refresh_count++] = cb;
 }
 
-static void theme_fire_refresh(void)
-{
-    for (uint8_t i = 0; i < refresh_count; i++)
-    {
+static void theme_fire_refresh(void) {
+    for (uint8_t i = 0; i < refresh_count; i++) {
         refresh_cbs[i]();
     }
 }
 
-static bool theme_compute_asleep(void)
-{
+static bool theme_compute_asleep(void) {
     return (k_uptime_get() - last_activity_ms) > SLEEP_ACTIVITY_TIMEOUT_MS;
 }
 
-static void theme_work_cb(struct k_work *work)
-{
+static void theme_work_cb(struct k_work *work) {
     bool now_asleep = theme_compute_asleep();
-    if (now_asleep != asleep)
-    {
+    if (now_asleep != asleep) {
         asleep = now_asleep;
         theme_start_fade(asleep);
     }
 }
 K_WORK_DEFINE(theme_work, theme_work_cb);
 
-static int theme_listener_cb(const zmk_event_t *eh)
-{
+static int theme_listener_cb(const zmk_event_t *eh) {
     const struct zmk_keycode_state_changed *ev = as_zmk_keycode_state_changed(eh);
 
-    if (ev != NULL && ev->state)
-    {
+    if (ev != NULL && ev->state) {
         last_activity_ms = k_uptime_get();
-        if (zmk_display_is_initialized())
-        {
+        if (zmk_display_is_initialized()) {
             k_work_submit_to_queue(zmk_display_work_q(), &theme_work);
         }
     }
@@ -92,24 +76,20 @@ static int theme_listener_cb(const zmk_event_t *eh)
 ZMK_LISTENER(theme, theme_listener_cb);
 ZMK_SUBSCRIPTION(theme, zmk_keycode_state_changed);
 
-static void theme_poll_cb(lv_timer_t *timer)
-{
-    if (theme_compute_asleep() != asleep)
-    {
+static void theme_poll_cb(lv_timer_t *timer) {
+    if (theme_compute_asleep() != asleep) {
         k_work_submit_to_queue(zmk_display_work_q(), &theme_work);
     }
 }
 
-void theme_init(void)
-{
+void theme_init(void) {
     last_activity_ms = k_uptime_get();
     asleep = theme_compute_asleep();
     accent = asleep ? THEME_ACCENT_CYAN : THEME_ACCENT_RED;
     lv_timer_create(theme_poll_cb, 1000, NULL);
 }
 
-static void theme_fade_exec_cb(void *var, int32_t v)
-{
+static void theme_fade_exec_cb(void *var, int32_t v) {
     /* lv_color_mix: mix==0 → c2 (cyan), mix==255 → c1 (red).
      * The animation value v therefore goes 255→0 for a fade to cyan and
      * 0→255 for a fade back to red (see theme_start_fade). */
@@ -117,8 +97,7 @@ static void theme_fade_exec_cb(void *var, int32_t v)
     theme_fire_refresh();
 }
 
-static void theme_start_fade(bool to_cyan)
-{
+static void theme_start_fade(bool to_cyan) {
     lv_anim_delete(&fade_var, NULL);
     lv_anim_t a;
     lv_anim_init(&a);

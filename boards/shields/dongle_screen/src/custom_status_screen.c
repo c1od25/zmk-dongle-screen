@@ -68,13 +68,11 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 static lv_style_t global_style;
 
 #if CONFIG_DONGLE_SCREEN_MEM_DEBUG
-static void mem_debug_timer_cb(lv_timer_t *timer)
-{
+static void mem_debug_timer_cb(lv_timer_t *timer) {
     lv_mem_monitor_t mon;
     lv_mem_monitor(&mon);
-    LOG_INF("LVGL mem: total=%u max_used=%u used_pct=%u%% free=%u frag_pct=%u%%",
-            mon.total_size, mon.max_used, mon.used_pct,
-            mon.free_size, mon.frag_pct);
+    LOG_INF("LVGL mem: total=%u max_used=%u used_pct=%u%% free=%u frag_pct=%u%%", mon.total_size,
+            mon.max_used, mon.used_pct, mon.free_size, mon.frag_pct);
 }
 #endif
 
@@ -85,7 +83,7 @@ static void mem_debug_timer_cb(lv_timer_t *timer)
  * the root, applies the background, and calls the inits. Explicit positions
  * only — no flex/grid anywhere.
  *
- * Positioning contract per widget (verified against each src/widgets/*.c init):
+ * Positioning contract per widget (verified against each src/widgets/<name>.c init):
  *   output    full-width top bar (240/320 x 22); screen aligns TOP_MID(0,15)
  *             portrait / TOP_MID(0,13) landscape — matches the L/R tag's
  *             bottom gap (15 / 13 px) for vertical symmetry.
@@ -105,8 +103,7 @@ static void mem_debug_timer_cb(lv_timer_t *timer)
  * (mods / showkey / wpm). The battery panel is transparent apart from its two
  * columns, so nothing below it is occluded.
  */
-lv_obj_t *zmk_display_status_screen()
-{
+lv_obj_t *zmk_display_status_screen() {
     lv_obj_t *screen;
 
     theme_init();

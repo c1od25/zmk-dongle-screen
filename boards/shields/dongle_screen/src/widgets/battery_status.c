@@ -47,28 +47,28 @@ extern const struct zmk_split_transport_central *active_transport;
  * bar top keeps its 40 px gap to the moved topsep in both orientations; the
  * bar bottom stays glued to the tag top via the runtime bar_h formula.
  */
-#define BATTERY_BAR_W         26
-#define BATTERY_TAG_GAP       4 /* tag-top ↔ bar-bottom gap (both orientations) */
-#define BATTERY_ICON_Y        54
+#define BATTERY_BAR_W 26
+#define BATTERY_TAG_GAP 4 /* tag-top ↔ bar-bottom gap (both orientations) */
+#define BATTERY_ICON_Y 54
 
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
-#define BATTERY_SCREEN_W      320
-#define BATTERY_SCREEN_H      240
-#define BATTERY_TAG_BOTTOM    227 /* WPM value bottom (landscape) */
+#define BATTERY_SCREEN_W 320
+#define BATTERY_SCREEN_H 240
+#define BATTERY_TAG_BOTTOM 227     /* WPM value bottom (landscape) */
 #define BATTERY_TAG_BOTTOM_OFF -13 /* TAG_BOTTOM - SCREEN_H */
-#define BATTERY_BAR_Y         81 /* topsep at 41 → bar top 40 px below */
-#define BATTERY_SLOT0_BAR_X   17
-#define BATTERY_SLOT1_BAR_X   277
+#define BATTERY_BAR_Y 81           /* topsep at 41 → bar top 40 px below */
+#define BATTERY_SLOT0_BAR_X 17
+#define BATTERY_SLOT1_BAR_X 277
 #define BATTERY_SLOT0_CENTER_X 30
 #define BATTERY_SLOT1_CENTER_X 290
 #else
-#define BATTERY_SCREEN_W      240
-#define BATTERY_SCREEN_H      320
-#define BATTERY_TAG_BOTTOM    305 /* WPM value bottom (portrait) */
+#define BATTERY_SCREEN_W 240
+#define BATTERY_SCREEN_H 320
+#define BATTERY_TAG_BOTTOM 305     /* WPM value bottom (portrait) */
 #define BATTERY_TAG_BOTTOM_OFF -15 /* TAG_BOTTOM - SCREEN_H */
-#define BATTERY_BAR_Y         83 /* topsep at 43 → bar top 40 px below */
-#define BATTERY_SLOT0_BAR_X   20
-#define BATTERY_SLOT1_BAR_X   194
+#define BATTERY_BAR_Y 83           /* topsep at 43 → bar top 40 px below */
+#define BATTERY_SLOT0_BAR_X 20
+#define BATTERY_SLOT1_BAR_X 194
 #define BATTERY_SLOT0_CENTER_X 33
 #define BATTERY_SLOT1_CENTER_X 207
 #endif
@@ -80,8 +80,7 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * NOT in the committed NerdFonts — font audit), a vertical lv_bar, and the
  * slot designator tag. One entry per peripheral slot.
  */
-struct battery_object
-{
+struct battery_object {
     lv_obj_t *icon;
     lv_obj_t *bar;
     lv_obj_t *tag;
@@ -93,14 +92,12 @@ static lv_style_t style_bar_track;
 static lv_style_t style_bar_hi;
 static lv_style_t style_bar_lo;
 
-enum battery_bar_tier
-{
+enum battery_bar_tier {
     BATTERY_BAR_HI,
     BATTERY_BAR_LO,
 };
 
-static void init_bar_styles(void)
-{
+static void init_bar_styles(void) {
     lv_style_init(&style_bar_track);
     lv_style_set_bg_color(&style_bar_track, lv_color_hex(THEME_COLOR_TRACK));
     lv_style_set_bg_opa(&style_bar_track, LV_OPA_COVER);
@@ -119,12 +116,10 @@ static void init_bar_styles(void)
     lv_style_set_radius(&style_bar_lo, 3);
 }
 
-static void set_bar_tier(lv_obj_t *bar, enum battery_bar_tier tier)
-{
+static void set_bar_tier(lv_obj_t *bar, enum battery_bar_tier tier) {
     lv_obj_remove_style(bar, &style_bar_hi, LV_PART_INDICATOR);
     lv_obj_remove_style(bar, &style_bar_lo, LV_PART_INDICATOR);
-    switch (tier)
-    {
+    switch (tier) {
     case BATTERY_BAR_LO:
         lv_obj_add_style(bar, &style_bar_lo, LV_PART_INDICATOR);
         break;
@@ -138,29 +133,24 @@ static void set_bar_tier(lv_obj_t *bar, enum battery_bar_tier tier)
 /* True when the transport reports the slot's peripheral as connected. The
  * transport connection state is authoritative and independent of the battery
  * event pipeline, so the L/R/X tags never get stuck on a stale battery level. */
-static bool is_slot_connected(uint8_t source)
-{
-    if (source < SOURCE_OFFSET || source >= BATTERY_SLOT_COUNT)
-    {
+static bool is_slot_connected(uint8_t source) {
+    if (source < SOURCE_OFFSET || source >= BATTERY_SLOT_COUNT) {
         return false;
     }
 
-    if (!active_transport || !active_transport->api || !active_transport->api->get_available_source_ids)
-    {
+    if (!active_transport || !active_transport->api ||
+        !active_transport->api->get_available_source_ids) {
         return false;
     }
 
     uint8_t sources[ZMK_SPLIT_CENTRAL_PERIPHERAL_COUNT];
     int count = active_transport->api->get_available_source_ids(sources);
-    if (count < 0)
-    {
+    if (count < 0) {
         return false;
     }
 
-    for (int i = 0; i < count; i++)
-    {
-        if (sources[i] == source - SOURCE_OFFSET)
-        {
+    for (int i = 0; i < count; i++) {
+        if (sources[i] == source - SOURCE_OFFSET) {
             return true;
         }
     }
@@ -184,12 +174,10 @@ static bool is_slot_connected(uint8_t source)
 
 static int32_t anim_level[BATTERY_SLOT_COUNT];
 
-static void battery_anim_exec_cb(void *var, int32_t v)
-{
+static void battery_anim_exec_cb(void *var, int32_t v) {
     uint8_t source = (var == &anim_level[0]) ? 0 : 1;
     struct battery_object *slot = &battery_objects[source];
-    if (slot->bar == NULL)
-    {
+    if (slot->bar == NULL) {
         return;
     }
 
@@ -199,18 +187,15 @@ static void battery_anim_exec_cb(void *var, int32_t v)
     lv_label_set_text_static(slot->icon, slot->text);
 }
 
-static void battery_anim_start(uint8_t source, int32_t target)
-{
+static void battery_anim_start(uint8_t source, int32_t target) {
     struct battery_object *slot = &battery_objects[source];
-    if (slot->bar == NULL)
-    {
+    if (slot->bar == NULL) {
         return;
     }
 
     int32_t start = lv_bar_get_value(slot->bar);
 
-    if (start == target)
-    {
+    if (start == target) {
         return;
     }
 
@@ -230,18 +215,15 @@ static void battery_anim_start(uint8_t source, int32_t target)
     lv_anim_start(&a);
 }
 
-static void battery_display_render(uint8_t source, uint8_t level)
-{
+static void battery_display_render(uint8_t source, uint8_t level) {
     struct battery_object *slot = &battery_objects[source];
-    if (slot->bar == NULL)
-    {
+    if (slot->bar == NULL) {
         return;
     }
 
     bool connected = is_slot_connected(source);
 
-    if (!connected)
-    {
+    if (!connected) {
         /* Disconnected: empty bar, red "X" tag (design §1). Tag switches
          * instantly; the bar still animates down to 0 for a smooth drain. */
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
@@ -257,13 +239,10 @@ static void battery_display_render(uint8_t source, uint8_t level)
      * level. A zero cache (battery not yet reported) renders "--" instead of
      * a fake 0% so the user can tell "connected, level unknown" from
      * "disconnected". */
-    if (level >= 30)
-    {
+    if (level >= 30) {
         set_bar_tier(slot->bar, BATTERY_BAR_HI);
         lv_obj_set_style_text_color(slot->icon, lv_color_hex(THEME_COLOR_FG_MID), 0);
-    }
-    else
-    {
+    } else {
         set_bar_tier(slot->bar, BATTERY_BAR_LO);
         lv_obj_set_style_text_color(slot->icon, theme_accent_color(), 0);
     }
@@ -271,19 +250,15 @@ static void battery_display_render(uint8_t source, uint8_t level)
     lv_label_set_text_static(slot->tag, source == 0 ? "L" : "R");
     lv_obj_set_style_text_color(slot->tag, lv_color_hex(THEME_COLOR_FG_MID), 0);
 
-    if (level >= 1)
-    {
+    if (level >= 1) {
         battery_anim_start(source, level);
-    }
-    else
-    {
+    } else {
         lv_label_set_text_static(slot->icon, "--");
         battery_anim_start(source, 0);
     }
 }
 
-static void battery_status_refresh(void)
-{
+static void battery_status_refresh(void) {
     lv_style_set_bg_color(&style_bar_lo, theme_accent_color());
     lv_obj_report_style_change(&style_bar_lo);
 }
@@ -292,29 +267,25 @@ static void battery_status_refresh(void)
  * connection state and the central's cached battery levels and re-renders the
  * affected slots, so a connect/disconnect shows within one second regardless of
  * whether any battery event was delivered (boot reads may fail or be dropped). */
-static void battery_status_poll_cb(lv_timer_t *timer)
-{
+static void battery_status_poll_cb(lv_timer_t *timer) {
     static bool prev_connected[BATTERY_SLOT_COUNT];
 
-    for (uint8_t i = 0; i < BATTERY_SLOT_COUNT; i++)
-    {
+    for (uint8_t i = 0; i < BATTERY_SLOT_COUNT; i++) {
         uint8_t level = 0;
         /* Slot 0 is the dongle itself when SOURCE_OFFSET == 1; only peripheral
          * slots map onto the central's battery cache (guard against a negative
          * source index when i < SOURCE_OFFSET). */
-        bool has_level = i >= SOURCE_OFFSET &&
-                         zmk_split_central_get_peripheral_battery_level(i - SOURCE_OFFSET, &level) == 0;
+        bool has_level = i >= SOURCE_OFFSET && zmk_split_central_get_peripheral_battery_level(
+                                                   i - SOURCE_OFFSET, &level) == 0;
 
         bool connected = is_slot_connected(i);
-        if (connected && !prev_connected[i])
-        {
+        if (connected && !prev_connected[i]) {
             LOG_INF("Peripheral slot %d connected, waking screen", i);
             brightness_wake_screen_on_reconnect();
         }
         prev_connected[i] = connected;
 
-        if (!has_level)
-        {
+        if (!has_level) {
             level = 0;
         }
 
@@ -322,8 +293,8 @@ static void battery_status_poll_cb(lv_timer_t *timer)
     }
 }
 
-int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_status *widget,
+                                          lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
     lv_obj_remove_style_all(widget->obj);
     lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
@@ -339,11 +310,9 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
     const int32_t slot_bar_x[2] = {BATTERY_SLOT0_BAR_X, BATTERY_SLOT1_BAR_X};
     const int32_t slot_center_x[2] = {BATTERY_SLOT0_CENTER_X, BATTERY_SLOT1_CENTER_X};
 
-    for (int i = 0; i < BATTERY_SLOT_COUNT; i++)
-    {
+    for (int i = 0; i < BATTERY_SLOT_COUNT; i++) {
         battery_objects[i] = (struct battery_object){0};
-        if (i >= 2)
-        {
+        if (i >= 2) {
             /* The design defines exactly two battery columns (lbat/rbat). */
             continue;
         }
@@ -401,7 +370,6 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
     return 0;
 }
 
-lv_obj_t *zmk_widget_dongle_battery_status_obj(struct zmk_widget_dongle_battery_status *widget)
-{
+lv_obj_t *zmk_widget_dongle_battery_status_obj(struct zmk_widget_dongle_battery_status *widget) {
     return widget->obj;
 }

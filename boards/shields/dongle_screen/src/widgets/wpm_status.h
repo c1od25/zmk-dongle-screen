@@ -9,8 +9,7 @@
 #include <lvgl.h>
 #include <zephyr/kernel.h>
 
-struct zmk_widget_wpm_status
-{
+struct zmk_widget_wpm_status {
     lv_obj_t *obj;
     lv_obj_t *wpm_value;
     lv_obj_t *wpm_icon;

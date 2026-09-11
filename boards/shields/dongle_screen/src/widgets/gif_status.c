@@ -40,8 +40,7 @@ static const lv_image_dsc_t gif_img_dsc = {
     .data_size = sizeof(gif_data),
 };
 
-int zmk_widget_gif_status_init(struct zmk_widget_gif_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_gif_status_init(struct zmk_widget_gif_status *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
     lv_obj_remove_style_all(widget->obj);
     lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
@@ -56,7 +55,4 @@ int zmk_widget_gif_status_init(struct zmk_widget_gif_status *widget, lv_obj_t *p
     return 0;
 }
 
-lv_obj_t *zmk_widget_gif_status_obj(struct zmk_widget_gif_status *widget)
-{
-    return widget->obj;
-}
+lv_obj_t *zmk_widget_gif_status_obj(struct zmk_widget_gif_status *widget) { return widget->obj; }

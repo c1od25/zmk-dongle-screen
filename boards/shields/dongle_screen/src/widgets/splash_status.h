@@ -13,8 +13,7 @@
  * freshly assembled status screen, holds for SPLASH_HOLD_MS, then fades out
  * to reveal the main UI. Runs entirely on the display thread during
  * zmk_display_status_screen() assembly. */
-struct zmk_widget_splash_status
-{
+struct zmk_widget_splash_status {
     lv_obj_t *obj;          /* full-screen overlay */
     lv_timer_t *hold_timer; /* one-shot hold before fade-out */
 };

@@ -1,0 +1,7 @@
+# Mirrors the ZMK fork's style so dongle-screen sources stay consistent with
+# the rest of the firmware. Apply to hand-written sources only (not the
+# generated src/fonts/*.c or src/gifs/*.c).
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 100
+SortIncludes: false

@@ -9,8 +9,7 @@
 #include <lvgl.h>
 #include <zephyr/kernel.h>
 
-struct zmk_widget_sleep_status
-{
+struct zmk_widget_sleep_status {
     sys_snode_t node;
     lv_obj_t *obj;
     lv_obj_t *label;

@@ -27,24 +27,19 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
-struct output_status_state
-{
+struct output_status_state {
     struct zmk_endpoint_instance selected_endpoint;
     bool usb_is_hid_ready;
     bool caps_lock;
     uint8_t layer_index;
 };
 
-static struct output_status_state get_state(const zmk_event_t *eh)
-{
+static struct output_status_state get_state(const zmk_event_t *eh) {
     bool caps_lock = false;
     const struct zmk_hid_indicators_changed *ev = as_zmk_hid_indicators_changed(eh);
-    if (ev != NULL)
-    {
+    if (ev != NULL) {
         caps_lock = (ev->indicators & HID_INDICATOR_CAPS_LOCK) != 0;
-    }
-    else
-    {
+    } else {
         caps_lock = (zmk_hid_indicators_get_current_profile() & HID_INDICATOR_CAPS_LOCK) != 0;
     }
 
@@ -71,55 +66,41 @@ static struct output_status_state get_state(const zmk_event_t *eh)
 #define LAYER_INDEX_WINLOCK 2
 #define LAYER_INDEX_DIR 3
 
-static void set_layer_symbol(struct zmk_widget_output_status *widget, uint8_t layer_index)
-{
-    lv_obj_set_style_text_color(widget->winlock_icon,
-                                layer_index == LAYER_INDEX_WINLOCK ? theme_accent_color()
-                                                                   : COLOR_FG_FAINT,
-                                LV_PART_MAIN);
-    lv_obj_set_style_text_color(widget->dir_icon,
-                                layer_index == LAYER_INDEX_DIR ? theme_accent_color()
-                                                               : COLOR_FG_FAINT,
-                                LV_PART_MAIN);
+static void set_layer_symbol(struct zmk_widget_output_status *widget, uint8_t layer_index) {
+    lv_obj_set_style_text_color(
+        widget->winlock_icon,
+        layer_index == LAYER_INDEX_WINLOCK ? theme_accent_color() : COLOR_FG_FAINT, LV_PART_MAIN);
+    lv_obj_set_style_text_color(
+        widget->dir_icon, layer_index == LAYER_INDEX_DIR ? theme_accent_color() : COLOR_FG_FAINT,
+        LV_PART_MAIN);
 }
 
-static void set_caps_symbol(struct zmk_widget_output_status *widget, bool caps_lock)
-{
+static void set_caps_symbol(struct zmk_widget_output_status *widget, bool caps_lock) {
     lv_obj_set_style_text_color(widget->caps_label,
                                 caps_lock ? theme_accent_color() : COLOR_FG_FAINT, LV_PART_MAIN);
 }
 
-static void set_status_symbol(struct zmk_widget_output_status *widget, struct output_status_state state)
-{
-    if (state.usb_is_hid_ready && state.selected_endpoint.transport == ZMK_TRANSPORT_USB)
-    {
+static void set_status_symbol(struct zmk_widget_output_status *widget,
+                              struct output_status_state state) {
+    if (state.usb_is_hid_ready && state.selected_endpoint.transport == ZMK_TRANSPORT_USB) {
         lv_obj_set_style_text_color(widget->usb_label, theme_accent_color(), LV_PART_MAIN);
-    }
-    else if (state.usb_is_hid_ready)
-    {
+    } else if (state.usb_is_hid_ready) {
         lv_obj_set_style_text_color(widget->usb_label, COLOR_FG_MID, LV_PART_MAIN);
-    }
-    else
-    {
+    } else {
         lv_obj_set_style_text_color(widget->usb_label, COLOR_FG_FAINT, LV_PART_MAIN);
     }
 }
 
-static void output_status_update_cb(struct output_status_state state)
-{
+static void output_status_update_cb(struct output_status_state state) {
     struct zmk_widget_output_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
-    {
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
         set_status_symbol(widget, state);
         set_caps_symbol(widget, state.caps_lock);
         set_layer_symbol(widget, state.layer_index);
     }
 }
 
-static void output_status_refresh(void)
-{
-    output_status_update_cb(get_state(NULL));
-}
+static void output_status_refresh(void) { output_status_update_cb(get_state(NULL)); }
 
 ZMK_DISPLAY_WIDGET_LISTENER(widget_output_status, struct output_status_state,
                             output_status_update_cb, get_state)
@@ -129,8 +110,7 @@ ZMK_SUBSCRIPTION(widget_output_status, zmk_hid_indicators_changed);
 ZMK_SUBSCRIPTION(widget_output_status, zmk_layer_state_changed);
 
 // output_status.c
-int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
     lv_obj_set_size(widget->obj, 320, 22);
@@ -186,7 +166,6 @@ int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_ob
     return 0;
 }
 
-lv_obj_t *zmk_widget_output_status_obj(struct zmk_widget_output_status *widget)
-{
+lv_obj_t *zmk_widget_output_status_obj(struct zmk_widget_output_status *widget) {
     return widget->obj;
 }

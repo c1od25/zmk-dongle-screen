@@ -11,8 +11,7 @@
 
 /* GIF animation widget (plays 96fx96f.gif, downscaled 70x70, in the former
  * WPM cell). Mutually exclusive with WPM and the scanner widget via Kconfig. */
-struct zmk_widget_gif_status
-{
+struct zmk_widget_gif_status {
     lv_obj_t *obj;
 };
 

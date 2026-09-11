@@ -24,22 +24,22 @@
  *     animation can re-apply the interpolated color on every frame
  */
 
-#define THEME_ACCENT_RED  ((lv_color_t)LV_COLOR_MAKE(0xf7, 0x76, 0x8e))
+#define THEME_ACCENT_RED ((lv_color_t)LV_COLOR_MAKE(0xf7, 0x76, 0x8e))
 #define THEME_ACCENT_CYAN ((lv_color_t)LV_COLOR_MAKE(0x7d, 0xcf, 0xff))
-#define THEME_FADE_MS     2000
+#define THEME_FADE_MS 2000
 
 /*
  * Tokyo Night "night" palette. Every widget must use these instead of
  * hardcoding hex literals, so switching palettes stays a single-file edit
  * (the accent above is the only animated color).
  */
-#define THEME_COLOR_BG       0x1a1b26 /* panel background            */
-#define THEME_COLOR_BG_ALT   0x16161e /* inset surfaces (mod keys)   */
-#define THEME_COLOR_FG       0xc0caf5 /* primary text                */
-#define THEME_COLOR_FG_MID   0xa9b1d6 /* secondary text / idle icons */
+#define THEME_COLOR_BG 0x1a1b26       /* panel background            */
+#define THEME_COLOR_BG_ALT 0x16161e   /* inset surfaces (mod keys)   */
+#define THEME_COLOR_FG 0xc0caf5       /* primary text                */
+#define THEME_COLOR_FG_MID 0xa9b1d6   /* secondary text / idle icons */
 #define THEME_COLOR_FG_FAINT 0x737aa2 /* inactive text / icons       */
-#define THEME_COLOR_BORDER   0x3b4261 /* separators / outlines       */
-#define THEME_COLOR_TRACK    0x292e42 /* bar track behind indicators */
+#define THEME_COLOR_BORDER 0x3b4261   /* separators / outlines       */
+#define THEME_COLOR_TRACK 0x292e42    /* bar track behind indicators */
 
 /* Panel background split into channels for the widgets that lerp toward it
  * (opaque RGB565 objects have no per-object alpha). */

@@ -29,26 +29,21 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * only mirrors it so the icon and the accent fade stay in sync. */
 static bool last_asleep;
 
-static void set_sleep_symbol(struct zmk_widget_sleep_status *widget, bool asleep)
-{
+static void set_sleep_symbol(struct zmk_widget_sleep_status *widget, bool asleep) {
     lv_label_set_text_static(widget->label, asleep ? SLEEP_LEAF : SLEEP_WIFI);
     lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
 }
 
-static void sleep_status_refresh(void)
-{
+static void sleep_status_refresh(void) {
     struct zmk_widget_sleep_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
-    {
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
         lv_obj_set_style_text_color(widget->label, theme_accent_color(), LV_PART_MAIN);
     }
 }
 
-static void sleep_status_poll_cb(lv_timer_t *timer)
-{
+static void sleep_status_poll_cb(lv_timer_t *timer) {
     bool asleep = theme_is_asleep();
-    if (asleep == last_asleep)
-    {
+    if (asleep == last_asleep) {
         return;
     }
 
@@ -57,8 +52,7 @@ static void sleep_status_poll_cb(lv_timer_t *timer)
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_sleep_symbol(widget, asleep); }
 }
 
-int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
     lv_obj_remove_style_all(widget->obj);
     lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
@@ -87,7 +81,6 @@ int zmk_widget_sleep_status_init(struct zmk_widget_sleep_status *widget, lv_obj_
     return 0;
 }
 
-lv_obj_t *zmk_widget_sleep_status_obj(struct zmk_widget_sleep_status *widget)
-{
+lv_obj_t *zmk_widget_sleep_status_obj(struct zmk_widget_sleep_status *widget) {
     return widget->obj;
 }

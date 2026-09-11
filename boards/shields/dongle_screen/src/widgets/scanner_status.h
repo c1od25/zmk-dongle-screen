@@ -14,8 +14,7 @@
 /* Block-character scanning loading animation (kr_4_12 rhythm). Occupies the
  * same screen cell as the WPM widget but is a pure animation (no ZMK events).
  * Mutually exclusive with WPM via Kconfig. */
-struct zmk_widget_scanner_status
-{
+struct zmk_widget_scanner_status {
     lv_obj_t *obj;
     lv_obj_t *blocks[SCANNER_BLOCK_N];
     sys_snode_t node;

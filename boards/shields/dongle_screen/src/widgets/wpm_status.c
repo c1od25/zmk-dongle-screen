@@ -15,10 +15,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include "wpm_status.h"
 #include <fonts.h>
+#include <theme.h>
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
-struct wpm_status_state
-{
+struct wpm_status_state {
     int wpm;
 };
 
@@ -31,35 +31,27 @@ struct wpm_status_state
  */
 static char buf[8];
 
-static struct wpm_status_state get_state(const zmk_event_t *_eh)
-{
+static struct wpm_status_state get_state(const zmk_event_t *_eh) {
     const struct zmk_wpm_state_changed *ev = as_zmk_wpm_state_changed(_eh);
 
-    return (struct wpm_status_state){
-        .wpm = ev ? ev->state : 0};
+    return (struct wpm_status_state){.wpm = ev ? ev->state : 0};
 }
 
-static void set_wpm(struct zmk_widget_wpm_status *widget, struct wpm_status_state state)
-{
+static void set_wpm(struct zmk_widget_wpm_status *widget, struct wpm_status_state state) {
     snprintf(buf, sizeof(buf), "%u", state.wpm);
     lv_label_set_text_static(widget->wpm_value, buf);
 }
 
-static void wpm_status_update_cb(struct wpm_status_state state)
-{
+static void wpm_status_update_cb(struct wpm_status_state state) {
     struct zmk_widget_wpm_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
-    {
-        set_wpm(widget, state);
-    }
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) { set_wpm(widget, state); }
 }
 
-ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state,
-                            wpm_status_update_cb, get_state)
+ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state, wpm_status_update_cb,
+                            get_state)
 ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
 
-int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *parent) {
     /*
      * Container rect (design doc §6.5):
      *   portrait  (66,226) 108x82  — wpm cell, middle column, bottom row
@@ -107,7 +99,4 @@ int zmk_widget_wpm_status_init(struct zmk_widget_wpm_status *widget, lv_obj_t *p
     return 0;
 }
 
-lv_obj_t *zmk_widget_wpm_status_obj(struct zmk_widget_wpm_status *widget)
-{
-    return widget->obj;
-}
+lv_obj_t *zmk_widget_wpm_status_obj(struct zmk_widget_wpm_status *widget) { return widget->obj; }

@@ -9,8 +9,7 @@
 #include <lvgl.h>
 #include <zephyr/kernel.h>
 
-struct zmk_widget_showkey_status
-{
+struct zmk_widget_showkey_status {
     sys_snode_t node;
     lv_obj_t *obj;
     lv_obj_t *label;      /* Mono_48: text keys, or the L/R prefix for mods */

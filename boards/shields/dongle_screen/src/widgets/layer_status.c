@@ -19,8 +19,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
-struct layer_status_state
-{
+struct layer_status_state {
     uint8_t index;
     const char *label;
 };
@@ -34,68 +33,51 @@ static char layer_index_text[4];
 #define LAYER_INDEX_WINLOCK 2
 #define LAYER_INDEX_DIR 3
 
-static uint8_t display_layer_index(void)
-{
-    zmk_keymap_layers_state_t state = zmk_keymap_layer_state();
-
-    for (int idx = ZMK_KEYMAP_LAYERS_LEN - 1; idx >= 0; idx--)
-    {
-        if (idx == LAYER_INDEX_WINLOCK || idx == LAYER_INDEX_DIR)
-        {
+static uint8_t display_layer_index(void) {
+    for (int idx = ZMK_KEYMAP_LAYERS_LEN - 1; idx >= 0; idx--) {
+        if (idx == LAYER_INDEX_WINLOCK || idx == LAYER_INDEX_DIR) {
             continue;
         }
-        if (zmk_keymap_layer_active(idx))
-        {
+        if (zmk_keymap_layer_active(idx)) {
             return idx;
         }
     }
     return 0;
 }
 
-static void layer_status_update_cb(struct layer_status_state state)
-{
+static void layer_status_update_cb(struct layer_status_state state) {
     struct zmk_widget_layer_status *widget;
-    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node)
-    {
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
         lv_obj_clear_flag(widget->layer_name, LV_OBJ_FLAG_HIDDEN);
 
         const char *label = state.label;
 
-        if (label == NULL || label[0] == '\0')
-        {
+        if (label == NULL || label[0] == '\0') {
             snprintf(layer_index_text, sizeof(layer_index_text), "%u", state.index);
             label = layer_index_text;
         }
 
         lv_label_set_text_static(widget->layer_name, label);
 
-        lv_obj_set_style_text_color(widget->layer_name,
-                                    state.index > 0 ? theme_accent_color()
-                                                    : lv_color_hex(THEME_COLOR_FG),
-                                    LV_PART_MAIN);
+        lv_obj_set_style_text_color(
+            widget->layer_name,
+            state.index > 0 ? theme_accent_color() : lv_color_hex(THEME_COLOR_FG), LV_PART_MAIN);
     }
 }
 
-static struct layer_status_state layer_status_get_state(const zmk_event_t *eh)
-{
+static struct layer_status_state layer_status_get_state(const zmk_event_t *eh) {
     uint8_t index = display_layer_index();
-    return (struct layer_status_state){
-        .index = index,
-        .label = zmk_keymap_layer_name(index)};
+    return (struct layer_status_state){.index = index, .label = zmk_keymap_layer_name(index)};
 }
 
-static void layer_status_refresh(void)
-{
-    layer_status_update_cb(layer_status_get_state(NULL));
-}
+static void layer_status_refresh(void) { layer_status_update_cb(layer_status_get_state(NULL)); }
 
 ZMK_DISPLAY_WIDGET_LISTENER(widget_layer_status, struct layer_status_state, layer_status_update_cb,
                             layer_status_get_state)
 
 ZMK_SUBSCRIPTION(widget_layer_status, zmk_layer_state_changed);
 
-int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
 
     lv_obj_set_size(widget->obj, 108, 22);
@@ -128,7 +110,6 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
     return 0;
 }
 
-lv_obj_t *zmk_widget_layer_status_obj(struct zmk_widget_layer_status *widget)
-{
+lv_obj_t *zmk_widget_layer_status_obj(struct zmk_widget_layer_status *widget) {
     return widget->obj;
 }

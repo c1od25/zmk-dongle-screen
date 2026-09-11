@@ -3,8 +3,7 @@
 #include <lvgl.h>
 #include <zmk/display.h>
 
-struct zmk_widget_mod_status
-{
+struct zmk_widget_mod_status {
     sys_snode_t node;
     lv_obj_t *obj;
     lv_obj_t *shift;

@@ -12,25 +12,23 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/display.h>
 
 #include "splash_status.h"
+#include <theme.h>
 
 #define SPLASH_HOLD_MS 2000
 #define SPLASH_FADE_MS 500
 
 /* Fade-out of the whole overlay. var == widget so lv_anim_delete works. */
-static void splash_fade_exec_cb(void *var, int32_t v)
-{
+static void splash_fade_exec_cb(void *var, int32_t v) {
     struct zmk_widget_splash_status *w = var;
     lv_obj_set_style_opa(w->obj, (lv_opa_t)v, LV_PART_MAIN);
 }
 
-static void splash_done_cb(lv_anim_t *a)
-{
+static void splash_done_cb(lv_anim_t *a) {
     struct zmk_widget_splash_status *widget = lv_anim_get_user_data(a);
     lv_obj_delete(widget->obj);
 }
 
-static void splash_hold_cb(lv_timer_t *timer)
-{
+static void splash_hold_cb(lv_timer_t *timer) {
     struct zmk_widget_splash_status *widget = lv_timer_get_user_data(timer);
     widget->hold_timer = NULL;
 
@@ -45,8 +43,7 @@ static void splash_hold_cb(lv_timer_t *timer)
     lv_anim_start(&a);
 }
 
-int zmk_widget_splash_status_init(struct zmk_widget_splash_status *widget, lv_obj_t *parent)
-{
+int zmk_widget_splash_status_init(struct zmk_widget_splash_status *widget, lv_obj_t *parent) {
     lv_disp_t *disp = lv_obj_get_display(parent);
     lv_coord_t w = lv_disp_get_hor_res(disp);
     lv_coord_t h = lv_disp_get_ver_res(disp);
@@ -60,8 +57,7 @@ int zmk_widget_splash_status_init(struct zmk_widget_splash_status *widget, lv_ob
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_COVER, LV_PART_MAIN);
 
     widget->hold_timer = lv_timer_create(splash_hold_cb, SPLASH_HOLD_MS, widget);
-    if (widget->hold_timer == NULL)
-    {
+    if (widget->hold_timer == NULL) {
         /* Out of LVGL timers: leave the splash static (never fades out) rather
          * than dereferencing NULL. */
         LOG_ERR("splash widget: timer allocation failed");
@@ -72,7 +68,6 @@ int zmk_widget_splash_status_init(struct zmk_widget_splash_status *widget, lv_ob
     return 0;
 }
 
-lv_obj_t *zmk_widget_splash_status_obj(struct zmk_widget_splash_status *widget)
-{
+lv_obj_t *zmk_widget_splash_status_obj(struct zmk_widget_splash_status *widget) {
     return widget->obj;
 }
