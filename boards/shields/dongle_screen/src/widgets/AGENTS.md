@@ -53,4 +53,4 @@
 - wpm / scanner / gif 三选一互斥共用一格（Kconfig.defconfig depends on 链）
 - scanner 拖尾色向背景 0x1a1b26 渐变（lv_obj 背景不透明、无 alpha 混合），改面板背景需同步 SCAN_BG_*
 - gif 是 70x70 嵌入数组（55 帧 @40ms，47610B），portrait 下 GIF_Y=-7 上下裁 7px；gif_data 声明带精确尺寸使 sizeof 是常量
-- layer_status.c 用 `#ifdef` 查 HORIZONTAL（其余用 `#if`），新代码一律 `#if`
+- layer_status.c 已统一为 `#if` 查 HORIZONTAL（全模块一致）

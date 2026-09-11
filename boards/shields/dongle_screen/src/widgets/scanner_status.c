@@ -44,9 +44,9 @@
  * mid-strength mix. RGB is lerped toward the panel bg (Tokyo Night bg
  * #1a1b26) because LVGL lv_obj backgrounds are opaque (no per-block alpha
  * blending). */
-#define SCAN_BG_R 26
-#define SCAN_BG_G 27
-#define SCAN_BG_B 38
+#define SCAN_BG_R THEME_COLOR_BG_R
+#define SCAN_BG_G THEME_COLOR_BG_G
+#define SCAN_BG_B THEME_COLOR_BG_B
 
 static const float trail_alphas[6] = {1.0f, 0.9f, 0.65f, 0.42f, 0.28f, 0.18f};
 

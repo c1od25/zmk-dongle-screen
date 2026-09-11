@@ -71,7 +71,7 @@ static void layer_status_update_cb(struct layer_status_state state)
 
         lv_obj_set_style_text_color(widget->layer_name,
                                     state.index > 0 ? theme_accent_color()
-                                                    : lv_color_hex(0xc0caf5),
+                                                    : lv_color_hex(THEME_COLOR_FG),
                                     LV_PART_MAIN);
     }
 }
@@ -100,7 +100,7 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
 
     lv_obj_set_size(widget->obj, 108, 22);
     lv_obj_set_pos(widget->obj, 66, 15);
-#ifdef CONFIG_DONGLE_SCREEN_HORIZONTAL
+#if CONFIG_DONGLE_SCREEN_HORIZONTAL
     lv_obj_set_size(widget->obj, 200, 22);
     lv_obj_set_pos(widget->obj, 60, 13);
 #endif
@@ -116,7 +116,7 @@ int zmk_widget_layer_status_init(struct zmk_widget_layer_status *widget, lv_obj_
      * documented fallback renders the layer name as plain text with no icon. */
     widget->layer_name = lv_label_create(widget->obj);
     lv_obj_set_style_text_font(widget->layer_name, &Mono_Italic_20, LV_PART_MAIN);
-    lv_obj_set_style_text_color(widget->layer_name, lv_color_hex(0xc0caf5), LV_PART_MAIN);
+    lv_obj_set_style_text_color(widget->layer_name, lv_color_hex(THEME_COLOR_FG), LV_PART_MAIN);
     lv_label_set_text_static(widget->layer_name, "");
     lv_obj_align(widget->layer_name, LV_ALIGN_CENTER, 0, 0);
 

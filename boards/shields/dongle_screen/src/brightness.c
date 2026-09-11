@@ -3,15 +3,15 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/led.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/random/random.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
 #include <zmk/events/layer_state_changed.h>
-#include <math.h>
 #include <stdlib.h>
 
-int random0to100()
+static int random0to100(void)
 {
-    return rand() % 101; // 0 to 100
+    return sys_rand32_get() % 101; // 0 to 100
 }
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -57,6 +57,10 @@ static int8_t current_brightness = CONFIG_DONGLE_SCREEN_DEFAULT_BRIGHTNESS;
 static int8_t brightness_modifier = CONFIG_DONGLE_SCREEN_BRIGHTNESS_MODIFIER;
 
 static bool off_through_modifier = false; // Used to track if the screen was turned off through the brightness modifier
+
+/* Screen on/off state. Declared unconditionally because the ambient-light
+ * thread reads it even when idle timeout and keyboard control are both off. */
+static bool screen_on = true;
 
 /**
  * @brief Structure to hold brightness calculation results
@@ -306,7 +310,6 @@ void set_screen_brightness(uint8_t value, bool ambient)
 
 #if CONFIG_DONGLE_SCREEN_IDLE_TIMEOUT_S > 0 || CONFIG_DONGLE_SCREEN_BRIGHTNESS_KEYBOARD_CONTROL
 // --- Brightness logic ---
-static bool screen_on = true;
 // --- Screen on/off ---
 
 static void screen_set_on(bool on)

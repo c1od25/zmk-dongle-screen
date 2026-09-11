@@ -102,13 +102,13 @@ enum battery_bar_tier
 static void init_bar_styles(void)
 {
     lv_style_init(&style_bar_track);
-    lv_style_set_bg_color(&style_bar_track, lv_color_hex(0x292e42));
+    lv_style_set_bg_color(&style_bar_track, lv_color_hex(THEME_COLOR_TRACK));
     lv_style_set_bg_opa(&style_bar_track, LV_OPA_COVER);
     lv_style_set_radius(&style_bar_track, 3);
 
     lv_style_init(&style_bar_hi);
     lv_style_set_bg_color(&style_bar_hi, lv_color_hex(0x545c7e));
-    lv_style_set_bg_grad_color(&style_bar_hi, lv_color_hex(0xa9b1d6));
+    lv_style_set_bg_grad_color(&style_bar_hi, lv_color_hex(THEME_COLOR_FG_MID));
     lv_style_set_bg_grad_dir(&style_bar_hi, LV_GRAD_DIR_VER);
     lv_style_set_bg_opa(&style_bar_hi, LV_OPA_COVER);
     lv_style_set_radius(&style_bar_hi, 3);
@@ -260,7 +260,7 @@ static void battery_display_render(uint8_t source, uint8_t level)
     if (level >= 30)
     {
         set_bar_tier(slot->bar, BATTERY_BAR_HI);
-        lv_obj_set_style_text_color(slot->icon, lv_color_hex(0xa9b1d6), 0);
+        lv_obj_set_style_text_color(slot->icon, lv_color_hex(THEME_COLOR_FG_MID), 0);
     }
     else
     {
@@ -269,7 +269,7 @@ static void battery_display_render(uint8_t source, uint8_t level)
     }
 
     lv_label_set_text_static(slot->tag, source == 0 ? "L" : "R");
-    lv_obj_set_style_text_color(slot->tag, lv_color_hex(0xa9b1d6), 0);
+    lv_obj_set_style_text_color(slot->tag, lv_color_hex(THEME_COLOR_FG_MID), 0);
 
     if (level >= 1)
     {
@@ -299,7 +299,11 @@ static void battery_status_poll_cb(lv_timer_t *timer)
     for (uint8_t i = 0; i < BATTERY_SLOT_COUNT; i++)
     {
         uint8_t level = 0;
-        bool has_level = zmk_split_central_get_peripheral_battery_level(i - SOURCE_OFFSET, &level) == 0;
+        /* Slot 0 is the dongle itself when SOURCE_OFFSET == 1; only peripheral
+         * slots map onto the central's battery cache (guard against a negative
+         * source index when i < SOURCE_OFFSET). */
+        bool has_level = i >= SOURCE_OFFSET &&
+                         zmk_split_central_get_peripheral_battery_level(i - SOURCE_OFFSET, &level) == 0;
 
         bool connected = is_slot_connected(i);
         if (connected && !prev_connected[i])
@@ -364,7 +368,7 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
          * Uses the default Mono_20 (digits/percent are not in NerdFonts). */
         lv_obj_t *icon = lv_label_create(widget->obj);
         lv_obj_set_style_text_font(icon, &Mono_20, 0);
-        lv_obj_set_style_text_color(icon, lv_color_hex(0xa9b1d6), 0);
+        lv_obj_set_style_text_color(icon, lv_color_hex(THEME_COLOR_FG_MID), 0);
         lv_obj_align(icon, LV_ALIGN_TOP_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
                      BATTERY_ICON_Y);
         lv_label_set_text_static(icon, "--");
@@ -375,7 +379,7 @@ int zmk_widget_dongle_battery_status_init(struct zmk_widget_dongle_battery_statu
          * (portrait 305, landscape 227) regardless of font line-height. */
         lv_obj_t *tag = lv_label_create(widget->obj);
         lv_obj_set_style_text_font(tag, &Mono_20, 0);
-        lv_obj_set_style_text_color(tag, lv_color_hex(0xa9b1d6), 0);
+        lv_obj_set_style_text_color(tag, lv_color_hex(THEME_COLOR_FG_MID), 0);
         lv_obj_align(tag, LV_ALIGN_BOTTOM_MID, slot_center_x[i] - BATTERY_SCREEN_W / 2,
                      BATTERY_TAG_BOTTOM_OFF);
         lv_label_set_text_static(tag, "X");

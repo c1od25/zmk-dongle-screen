@@ -42,7 +42,7 @@ Zephyr module + ZMK shield for a dongle display (ST7789V 240x280 + LVGL) on spli
 - **WPM / SCANNER / GIF are mutually exclusive** (`depends on !` chain in Kconfig.defconfig) — they share one screen cell.
 - **Widget positioning contract**: most widgets self-position in their `init`; `mod_status` is sized by the widget but positioned by the screen file. See "Positioning contract" comment in `custom_status_screen.c`.
 - **Thread-safety**: LVGL ops only on the display thread (lv_timer / display work queue). ZMK event callbacks only write state, then `k_work_submit_to_queue(zmk_display_work_q(), ...)`.
-- **Palette**: Tokyo Night night style (bg `#1a1b26`, fg `#c0caf5`, red `#f7768e`, cyan `#7dcfff`) — accents defined only in `include/theme.h`, all widgets use `theme_accent_color()`. See src/widgets/AGENTS.md.
+- **Palette**: Tokyo Night night style (bg `#1a1b26`, fg `#c0caf5`, red `#f7768e`, cyan `#7dcfff`) — the full palette lives in `include/theme.h` (`THEME_COLOR_*` + `THEME_ACCENT_*`); widgets must not hardcode hex. Accents use `theme_accent_color()`. See src/widgets/AGENTS.md.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
@@ -50,7 +50,7 @@ Zephyr module + ZMK shield for a dongle display (ST7789V 240x280 + LVGL) on spli
 - **`lv_timer_t` is an incomplete type** — never access `timer->user_data`; use `lv_timer_get_user_data()`.
 - **`lv_label_set_text_static()` does NOT copy** — always back with a module-static buffer (never a stack/local string).
 - **`DONGLE_SCREEN_SYSTEM_ICON` is dead config** — defined but unused.
-- **`#ifdef` vs `#if` inconsistency**: `layer_status.c` and `screen_rotate_init.c` use `#ifdef CONFIG_DONGLE_SCREEN_HORIZONTAL` while all others use `#if`.
+- **`#ifdef` vs `#if`** (resolved): the HORIZONTAL/FLIPPED checks are now uniformly `#if` across `layer_status.c`, `screen_rotate_init.c` and the rest.
 - **Font glyphs are minimal sets** — new icon requires regenerating the font C file with the new PUA codepoint in `--symbols`; codepoints above BMP need `\U0000XXXX` (8-digit) escape. Codepoints verified against nerdfont.csv (e.g. `nf-md-caps_lock` = U+F0A9B).
 - **scanner trail colors assume background 0x1a1b26** — if panel bg changes, update `SCAN_BG_R/G/B` in `scanner_status.c`.
 - **Dark-bg contrast rule**: on a brightened bg, "darker" is capped at ~1.23:1 (black floor) — to distinguish elements they must be BRIGHTER than the bg. Rain LUT dim end uses `darken(accent, 120)` (was 200, invisible on #1a1b26).

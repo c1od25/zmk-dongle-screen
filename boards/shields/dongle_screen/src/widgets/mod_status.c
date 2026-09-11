@@ -8,10 +8,10 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-/* Design palette (design doc §4). */
-#define MOD_BG_IDLE       0x16161e
-#define MOD_BORDER_IDLE   0x3b4261
-#define MOD_TEXT_IDLE     0x737aa2
+/* Design palette (design doc §4); values come from the shared theme palette. */
+#define MOD_BG_IDLE       THEME_COLOR_BG_ALT
+#define MOD_BORDER_IDLE   THEME_COLOR_BORDER
+#define MOD_TEXT_IDLE     THEME_COLOR_FG_FAINT
 
 /* Mods cell geometry (design doc §2.5 portrait / §3.5 landscape). */
 #if CONFIG_DONGLE_SCREEN_HORIZONTAL
@@ -98,6 +98,14 @@ static void update_mod_status(struct zmk_widget_mod_status *widget)
 {
     uint8_t mods = zmk_hid_get_keyboard_report()->body.modifiers;
 
+    /* Skip style writes when nothing changed: the 100ms poll would otherwise
+     * invalidate all four keys every tick even while idle. */
+    if (mods == widget->last_mods)
+    {
+        return;
+    }
+    widget->last_mods = mods;
+
     set_mod_key_active(widget->shift, widget->shift_icon, mods & (MOD_LSFT | MOD_RSFT));
     set_mod_key_active(widget->ctrl, widget->ctrl_icon, mods & (MOD_LCTL | MOD_RCTL));
     set_mod_key_active(widget->alt, widget->alt_icon, mods & (MOD_LALT | MOD_RALT));
@@ -119,6 +127,7 @@ int zmk_widget_mod_status_init(struct zmk_widget_mod_status *widget, lv_obj_t *p
     lv_obj_set_style_pad_left(widget->obj, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_right(widget->obj, 0, LV_PART_MAIN);
     lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
+    widget->last_mods = 0xFF; /* force first poll to paint */
 
     widget->shift = mod_key_create(widget->obj, &mod_key_pos[0], MOD_ICON_SHIFT, &widget->shift_icon);
     widget->ctrl = mod_key_create(widget->obj, &mod_key_pos[1], MOD_ICON_CTRL, &widget->ctrl_icon);

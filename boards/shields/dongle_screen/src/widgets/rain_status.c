@@ -82,7 +82,7 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #endif
 
 /* Base color matches the screen root background so the block blends in. */
-#define RAIN_COLOR_BASE ((lv_color_t)LV_COLOR_MAKE(0x1a, 0x1b, 0x26))
+#define RAIN_COLOR_BASE lv_color_hex(THEME_COLOR_BG)
 
 /* Fixed gripper glyph string (U+EB04). Stored once; the matrix references it
  * by pointer identity so the draw loop can pick the icon font per cell. */
@@ -333,7 +333,10 @@ static void rain_fade_out_done_cb(lv_anim_t *a)
 {
     struct zmk_widget_rain_status *widget = lv_anim_get_user_data(a);
     widget->visible = false;
-    lv_timer_pause(widget->timer);
+    if (widget->timer != NULL)
+    {
+        lv_timer_pause(widget->timer);
+    }
     lv_obj_add_flag(widget->obj, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_opa(widget->obj, LV_OPA_COVER, LV_PART_MAIN);
 }
@@ -354,7 +357,10 @@ static void rain_start_fade_in(struct zmk_widget_rain_status *widget)
     lv_anim_set_duration(&a, RAIN_FADE_IN_MS);
     lv_anim_start(&a);
 
-    lv_timer_resume(widget->timer);
+    if (widget->timer != NULL)
+    {
+        lv_timer_resume(widget->timer);
+    }
 }
 
 static void rain_start_fade_out(struct zmk_widget_rain_status *widget)
@@ -470,8 +476,28 @@ int zmk_widget_rain_status_init(struct zmk_widget_rain_status *widget, lv_obj_t 
     widget->last_activity_ms = k_uptime_get();
 
     widget->timer = lv_timer_create(rain_frame_cb, RAIN_FRAME_MS, widget);
-    lv_timer_pause(widget->timer);
     widget->gate_timer = lv_timer_create(rain_gate_cb, RAIN_GATE_POLL_MS, widget);
+    if (widget->timer == NULL || widget->gate_timer == NULL)
+    {
+        /* Out of LVGL timers: disable rain entirely rather than dereferencing
+         * a NULL timer on pause/resume. */
+        LOG_ERR("rain widget: timer allocation failed (frame=%p gate=%p)",
+                (void *)widget->timer, (void *)widget->gate_timer);
+        if (widget->timer != NULL)
+        {
+            lv_timer_delete(widget->timer);
+            widget->timer = NULL;
+        }
+        if (widget->gate_timer != NULL)
+        {
+            lv_timer_delete(widget->gate_timer);
+            widget->gate_timer = NULL;
+        }
+    }
+    else
+    {
+        lv_timer_pause(widget->timer);
+    }
 
     lv_obj_add_flag(widget->obj, LV_OBJ_FLAG_HIDDEN);
 

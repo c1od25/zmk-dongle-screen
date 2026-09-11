@@ -5,9 +5,9 @@
 ## theme.c（头文件在 include/theme.h，不在本目录）
 
 - **睡眠态强调色渐变**：无按键 30s（`SLEEP_ACTIVITY_TIMEOUT_MS`）→ 红 `THEME_ACCENT_RED`(0xf7768e, Tokyo Night red) 渐变为青 `THEME_ACCENT_CYAN`(0x7dcfff, Tokyo Night cyan)，THEME_FADE_MS=2000ms
-- **配色=Tokyo Night night 风格**（bg `#1a1b26`/fg `#c0caf5`/red `#f7768e`/cyan `#7dcfff`），只改 theme.h 双宏即全局换主题
+- **配色=Tokyo Night night 风格**（bg `#1a1b26`/fg `#c0caf5`/red `#f7768e`/cyan `#7dcfff`），全部色值集中在 theme.h（`THEME_COLOR_*` + THEME_ACCENT_*），widget 不再写死十六进制；换主题只改 theme.h
 - `theme_accent_color()` 返回当前插值色；所有渲染 accent 的 widget 必须换用此函数，别再写死色值
-- `theme_register_refresh(cb)` 注册逐帧回调，上限 THEME_MAX_REFRESH=8，超限**静默丢弃**（无报错）
+- `theme_register_refresh(cb)` 注册逐帧回调，上限 THEME_MAX_REFRESH=16，超限在 assert 构建中 `__ASSERT` 中止、否则 `LOG_ERR` 后丢弃（**不再静默**）
 - **睡眠判定 = 按键活动超时**（`zmk_keycode_state_changed` 刷新 last_activity），**不依赖电池事件**（半区深睡已禁用，电池电平不再归零）；`theme_compute_asleep()` 由键活动时间戳计算
 - 事件通道：ZMK_LISTENER(theme) 订阅 `zmk_keycode_state_changed` → `k_work_submit_to_queue(zmk_display_work_q(), ...)`；LVGL 只由 work 回调动（线程安全契约）
 - **1s lv_timer 轮询兜底**：`theme_poll_cb` 检查无键活动超时，只在状态跳变时提 work
@@ -40,7 +40,7 @@
 
 - `SYS_INIT(disp_set_orientation, APPLICATION, 60)`；`display_set_orientation` 写 ST7789V MADCTL
 - HORIZONTAL × FLIPPED 四组合 → ROTATED_90 / 270 / NORMAL / 180
-- 注意同文件内混用 `#ifdef`/`#if`，且本文件用 `#ifdef`、custom_status_screen.c 用 `#if` 查同一 CONFIG_DONGLE_SCREEN_HORIZONTAL（见父文档 ANTI-PATTERNS）；新增代码一律 `#if`
+- 方向条件统一用 `#if`（已清理历史 `#ifdef`），与 custom_status_screen.c 一致
 
 ## 交叉要点
 

@@ -15,6 +15,7 @@ struct zmk_widget_mod_status
     lv_obj_t *ctrl_icon;
     lv_obj_t *alt_icon;
     lv_obj_t *gui_icon;
+    uint8_t last_mods;
 };
 
 int zmk_widget_mod_status_init(struct zmk_widget_mod_status *widget, lv_obj_t *parent);

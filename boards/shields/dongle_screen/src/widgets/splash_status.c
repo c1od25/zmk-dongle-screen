@@ -56,10 +56,17 @@ int zmk_widget_splash_status_init(struct zmk_widget_splash_status *widget, lv_ob
     lv_obj_remove_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(widget->obj, w, h);
     lv_obj_set_pos(widget->obj, 0, 0);
-    lv_obj_set_style_bg_color(widget->obj, lv_color_hex(0x1a1b26), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(widget->obj, lv_color_hex(THEME_COLOR_BG), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_COVER, LV_PART_MAIN);
 
     widget->hold_timer = lv_timer_create(splash_hold_cb, SPLASH_HOLD_MS, widget);
+    if (widget->hold_timer == NULL)
+    {
+        /* Out of LVGL timers: leave the splash static (never fades out) rather
+         * than dereferencing NULL. */
+        LOG_ERR("splash widget: timer allocation failed");
+        return 0;
+    }
     lv_timer_set_repeat_count(widget->hold_timer, 1);
 
     return 0;

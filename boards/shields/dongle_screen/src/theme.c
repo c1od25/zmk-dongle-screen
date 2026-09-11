@@ -4,6 +4,7 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/sys/__assert.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -13,7 +14,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include "theme.h"
 
-#define THEME_MAX_REFRESH 8
+/* Registered accent-refresh callbacks. Bumped above the current 7 users so a
+ * new widget does not silently overflow; a full table is a hard error in
+ * assert-enabled builds and logs an error otherwise. */
+#define THEME_MAX_REFRESH 16
 
 static int64_t last_activity_ms;
 static lv_color_t accent = THEME_ACCENT_RED;
@@ -37,10 +41,14 @@ bool theme_is_asleep(void)
 
 void theme_register_refresh(accent_refresh_cb_t cb)
 {
-    if (refresh_count < THEME_MAX_REFRESH)
+    __ASSERT(refresh_count < THEME_MAX_REFRESH,
+             "theme refresh table full (%d entries)", THEME_MAX_REFRESH);
+    if (refresh_count >= THEME_MAX_REFRESH)
     {
-        refresh_cbs[refresh_count++] = cb;
+        LOG_ERR("theme refresh table full (%d entries); callback dropped", THEME_MAX_REFRESH);
+        return;
     }
+    refresh_cbs[refresh_count++] = cb;
 }
 
 static void theme_fire_refresh(void)
