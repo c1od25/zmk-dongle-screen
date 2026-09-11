@@ -9,9 +9,14 @@
 #include <zmk/events/layer_state_changed.h>
 #include <stdlib.h>
 
+/* Mock ambient reading, used only by the DONGLE_SCREEN_AMBIENT_LIGHT_TEST
+ * build (real sensor path never calls it). Guarded so a static-but-unused
+ * function does not warn on the normal builds. */
+#if IS_ENABLED(CONFIG_DONGLE_SCREEN_AMBIENT_LIGHT) && IS_ENABLED(CONFIG_DONGLE_SCREEN_AMBIENT_LIGHT_TEST)
 static int random0to100(void) {
     return sys_rand32_get() % 101; // 0 to 100
 }
+#endif
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
