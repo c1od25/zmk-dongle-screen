@@ -49,7 +49,20 @@ static void theme_fire_refresh(void) {
     }
 }
 
+/* Weak fallback: with no external provider, "asleep" is the local key-activity
+ * timeout. The screen dongle's RF24 bridge overrides this strongly so the
+ * accent tracks whether both halves are in shallow sleep instead. */
+__weak bool theme_keyboard_idle(bool *handled) {
+    *handled = false;
+    return false;
+}
+
 static bool theme_compute_asleep(void) {
+    bool handled = false;
+    bool idle = theme_keyboard_idle(&handled);
+    if (handled) {
+        return idle;
+    }
     return (k_uptime_get() - last_activity_ms) > SLEEP_ACTIVITY_TIMEOUT_MS;
 }
 

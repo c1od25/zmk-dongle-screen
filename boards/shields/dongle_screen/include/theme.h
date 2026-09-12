@@ -60,6 +60,14 @@ lv_color_t theme_accent_color(void);
 /* Whether the keyboard is currently in sleep mode (no key for 30s). */
 bool theme_is_asleep(void);
 
+/* Optional idle provider. theme.c defines a weak fallback that reports
+ * *handled=false, so sleep falls back to the local key-activity timeout. The
+ * screen dongle's RF24 bridge overrides it (strong) to drive the accent from
+ * "both halves in shallow sleep": it sets *handled=true when it owns the
+ * decision. Implementations must treat NULL as "not interested" and only set
+ * *handled when they own it. */
+bool theme_keyboard_idle(bool *handled);
+
 /* Register a refresh callback invoked on every fade frame (display thread). */
 void theme_register_refresh(accent_refresh_cb_t cb);
 

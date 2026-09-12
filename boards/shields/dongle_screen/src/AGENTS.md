@@ -8,7 +8,7 @@
 - **配色=Tokyo Night night 风格**（bg `#1a1b26`/fg `#c0caf5`/red `#f7768e`/cyan `#7dcfff`），全部色值集中在 theme.h（`THEME_COLOR_*` + THEME_ACCENT_*），widget 不再写死十六进制；换主题只改 theme.h
 - `theme_accent_color()` 返回当前插值色；所有渲染 accent 的 widget 必须换用此函数，别再写死色值
 - `theme_register_refresh(cb)` 注册逐帧回调，上限 THEME_MAX_REFRESH=16，超限在 assert 构建中 `__ASSERT` 中止、否则 `LOG_ERR` 后丢弃（**不再静默**）
-- **睡眠判定 = 按键活动超时**（`zmk_keycode_state_changed` 刷新 last_activity），**不依赖电池事件**（半区深睡已禁用，电池电平不再归零）；`theme_compute_asleep()` 由键活动时间戳计算
+- **睡眠判定 = 本地按键活动超时（fallback），可被外部 provider 覆盖**：`theme_compute_asleep()` 先调弱符号 `theme_keyboard_idle(&handled)`（theme.c 兜底 `handled=false`，走 `last_activity` 超时）；屏 dongle 由 rf24-module 的 `rf24_screen_bridge.c` 强定义，改为"两半区都浅睡才变青"。**不依赖电池事件**（半区深睡已禁用，电池电平不再归零）
 - 事件通道：ZMK_LISTENER(theme) 订阅 `zmk_keycode_state_changed` → `k_work_submit_to_queue(zmk_display_work_q(), ...)`；LVGL 只由 work 回调动（线程安全契约）
 - **1s lv_timer 轮询兜底**：`theme_poll_cb` 检查无键活动超时，只在状态跳变时提 work
 - **lv_color_mix 方向坑**：`lv_color_mix(c1=红, c2=青, v)`：v==0→青、v==255→红。故动画值反向——fade→青时 255→0，fade→红时 0→255（`theme_start_fade` 的 values 与直觉相反）

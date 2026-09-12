@@ -61,13 +61,14 @@ Zephyr module + ZMK shield for a dongle display (ST7789V 240x280 + LVGL) on spli
 # Build the dongle shield (from an app workspace that includes this module)
 west build -b nice_nano@2//zmk -- -DSHIELD="<dongle> dongle_screen" -DZMK_EXTRA_MODULES=<path-to-this-repo>
 
-# Local fork workflow: edit → commit → push to feat/ergoastra-sleep-accent-fade
-# Then bump revision in the consumer repo's config/west.yml
+# Local zmk-lab workflow: this repo lives at zmk-lab/zmk-dongle-screen and is
+# injected by demo-config/scripts/build.sh via ZMK_EXTRA_MODULES (mounted at
+# /screen) — NOT a west project. edit → commit → push; no west.yml bump needed.
 ```
 
 ## NOTES
 
-- **Two kinds of "sleep"**: screen sleep (backlight off, in `brightness.c`) vs keyboard sleep (30s no-key-activity accent fade, in `sleep_status.c` + `theme.c`). They are independent.
+- **Two kinds of "sleep"**: screen sleep (backlight off, in `brightness.c`) vs keyboard sleep (accent fade, in `sleep_status.c` + `theme.c`). They are independent. In this workspace the screen dongle overrides theme's weak `theme_keyboard_idle()` (via `rf24-module`'s `rf24_screen_bridge.c`) so the accent follows "both RF24 halves in shallow sleep"; the stock 30s local key-activity timeout is only the fallback.
 - **Connection state comes from the transport, not battery events**: L/R tags are driven by `active_transport->api->get_available_source_ids()` in a 1s poll — battery events were unreliable on reboot (ADC not ready, dropped queue). See widgets/AGENTS.md.
 - **Slot = connection order**, not physical side. Tag "L"/"R" are ordinals.
 - **No CI in this repo** — builds are driven by the consumer workspace. This repo only ships west.yml + docs.
