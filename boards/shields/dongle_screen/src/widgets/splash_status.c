@@ -14,7 +14,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include "splash_status.h"
 #include <theme.h>
 
-#define SPLASH_HOLD_MS 2000
+/* Total boot-splash time (hold + fade) is capped at ~0.5s: no hold, so the
+ * overlay starts revealing the assembled UI as soon as the display thread
+ * runs its first timer, then fades out over 500ms. */
+#define SPLASH_HOLD_MS 0
 #define SPLASH_FADE_MS 500
 
 /* Fade-out of the whole overlay. var == widget so lv_anim_delete works. */
